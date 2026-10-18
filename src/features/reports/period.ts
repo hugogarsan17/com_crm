@@ -1,11 +1,23 @@
 import { TZDate } from "@date-fns/tz";
-import { differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, startOfWeek, startOfYear, subDays, subMonths } from "date-fns";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  endOfMonth,
+  format,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+} from "date-fns";
 import { isValidLocalDate } from "@/lib/dates";
 
 export const PERIOD_PRESETS = {
   this_week: "Esta semana",
   this_month: "Este mes",
   last_month: "Mes anterior",
+  month: "Elegir mes…",
   last_30: "Últimos 30 días",
   last_90: "Últimos 90 días",
   this_year: "Este año",
@@ -20,7 +32,31 @@ export type ResolvedPeriod = {
   from: string;
   to: string;
   bucket: Bucket;
+  /** "YYYY-MM" cuando el periodo es exactamente un mes natural (este mes, mes anterior o un mes elegido). */
+  month: string | null;
 };
+
+const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+export function isValidMonth(value: string | undefined): value is string {
+  if (!value || !MONTH_RE.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  return year >= 2000 && year <= 2200;
+}
+
+/** "2026-10" → "octubre de 2026". */
+export function formatMonth(month: string) {
+  const d = new Date(`${month}-01T00:00:00Z`);
+  return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(d);
+}
+
+/** Mes anterior y siguiente ("YYYY-MM"); el siguiente es null si sería futuro respecto a `currentMonth`. */
+export function adjacentMonths(month: string, currentMonth: string) {
+  const base = parseISO(`${month}-01`);
+  const prev = format(subMonths(base, 1), "yyyy-MM");
+  const next = format(addMonths(base, 1), "yyyy-MM");
+  return { prev, next: next <= currentMonth ? next : null };
+}
 
 const MAX_DAYS = 1095;
 
@@ -37,7 +73,7 @@ export function bucketFor(from: string, to: string): Bucket {
 
 /** Resuelve el periodo (fechas locales inclusive) a partir de los parámetros de la URL. */
 export function resolvePeriod(
-  params: { period?: string; from?: string; to?: string },
+  params: { period?: string; from?: string; to?: string; month?: string },
   tz: string,
   now: Date = new Date(),
   fallback: PeriodPreset = "this_month",
@@ -48,6 +84,8 @@ export function resolvePeriod(
 
   let from: string;
   let to: string = ymd(today);
+  const currentMonth = format(today, "yyyy-MM");
+  let month: string | null = null;
 
   switch (preset) {
     case "this_week":
@@ -57,6 +95,18 @@ export function resolvePeriod(
       const prev = subMonths(today, 1);
       from = ymd(startOfMonth(prev));
       to = ymd(endOfMonth(prev));
+      month = format(prev, "yyyy-MM");
+      break;
+    }
+    case "month": {
+      if (!isValidMonth(params.month) || params.month > currentMonth) {
+        return resolvePeriod({ period: fallback }, tz, now, fallback);
+      }
+      const start = parseISO(`${params.month}-01`);
+      from = ymd(start);
+      // El mes en curso llega hasta hoy; los anteriores, completos.
+      to = params.month === currentMonth ? ymd(today) : ymd(endOfMonth(start));
+      month = params.month;
       break;
     }
     case "last_30":
@@ -81,9 +131,10 @@ export function resolvePeriod(
     }
     default:
       from = ymd(startOfMonth(today));
+      if (preset === "this_month") month = currentMonth;
   }
 
-  return { preset, from, to, bucket: bucketFor(from, to) };
+  return { preset, from, to, bucket: bucketFor(from, to), month };
 }
 
 /** Conversión segura: leads con póliza / leads contactados. */

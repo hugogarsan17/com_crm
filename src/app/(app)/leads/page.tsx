@@ -8,7 +8,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { LeadsFilters } from "@/features/leads/components/leads-filters";
 import { LeadsList, Pagination } from "@/features/leads/components/leads-list";
-import { getProductOptions, listLeads } from "@/features/leads/queries";
+import { listLeads } from "@/features/leads/queries";
+import { getProducts } from "@/features/products/queries";
 import { parseLeadFilters } from "@/features/leads/search-params";
 
 export const metadata: Metadata = { title: "Fichas" };
@@ -18,14 +19,16 @@ type SearchParams = PageProps<"/leads">["searchParams"];
 const loadFilters = cache(async (searchParams: SearchParams) => parseLeadFilters(await searchParams));
 
 async function FiltersSection({ searchParams }: { searchParams: SearchParams }) {
-  const [filters, productOptions] = await Promise.all([loadFilters(searchParams), getProductOptions()]);
-  return <LeadsFilters filters={filters} productOptions={productOptions} />;
+  const [filters, products] = await Promise.all([loadFilters(searchParams), getProducts()]);
+  return <LeadsFilters filters={filters} products={products} />;
 }
 
 async function LeadsResults({ searchParams }: { searchParams: SearchParams }) {
   const filters = await loadFilters(searchParams);
-  const result = await listLeads(filters);
-  const hasFilters = Boolean(filters.q || filters.status || filters.priority || filters.product || filters.from || filters.to);
+  const [result, products] = await Promise.all([listLeads(filters), getProducts()]);
+  const hasFilters = Boolean(
+    filters.q || filters.status || filters.priority || filters.product || filters.funeral || filters.from || filters.to,
+  );
 
   if (result.leads.length === 0) {
     return hasFilters || filters.view === "archived" ? (
@@ -55,7 +58,7 @@ async function LeadsResults({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <LeadsList leads={result.leads} timezone={result.timezone} now={result.fetchedAt} />
+      <LeadsList leads={result.leads} products={products} timezone={result.timezone} now={result.fetchedAt} />
       <Pagination filters={filters} page={result.page} pageCount={result.pageCount} total={result.total} />
     </>
   );
@@ -65,8 +68,8 @@ function FiltersSkeleton() {
   return (
     <div className="flex flex-col gap-3 rounded-xl border bg-card p-3" aria-busy="true" aria-label="Cargando filtros">
       <Skeleton className="h-10 w-full" />
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-7">
+        {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="flex flex-col gap-1">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="h-8 w-full" />

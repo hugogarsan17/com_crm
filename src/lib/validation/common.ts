@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidLocalDate, isValidLocalDateTime } from "@/lib/dates";
+import { isValidPostalCode, normalizePostalCode, POSTAL_CODE_ERROR } from "@/features/postal-codes/spain";
 
 const emptyToNull = (v: string) => (v === "" ? null : v);
 
@@ -25,6 +26,13 @@ export const optionalPhone = z
   .max(30, "Máximo 30 caracteres")
   .refine((v) => v === "" || isValidPhone(v), PHONE_ERROR)
   .transform(emptyToNull);
+
+/** Código postal opcional: español (5 dígitos) o extranjero (3–10 caracteres alfanuméricos). */
+export const optionalPostalCode = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || isValidPostalCode(v), POSTAL_CODE_ERROR)
+  .transform((v) => (v === "" ? null : normalizePostalCode(v)));
 
 export const EMAIL_ERROR = "Introduce un email válido";
 
@@ -82,23 +90,3 @@ export const optionalLocalDate = z
   .transform(emptyToNull);
 
 export const uuid = z.uuid("Identificador no válido");
-
-/** "Hogar, Auto; Vida" → ["Hogar", "Auto", "Vida"] sin duplicados. */
-export function parseList(raw: string) {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of raw.split(/[,;\n|]/)) {
-    const v = item.trim();
-    if (v && !seen.has(v.toLowerCase())) {
-      seen.add(v.toLowerCase());
-      out.push(v);
-    }
-  }
-  return out;
-}
-
-export const listFromText = z
-  .string()
-  .transform(parseList)
-  .refine((list) => list.length <= 30, "Máximo 30 elementos")
-  .refine((list) => list.every((v) => v.length <= 80), "Cada elemento admite como máximo 80 caracteres");

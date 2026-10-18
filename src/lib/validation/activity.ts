@@ -21,13 +21,6 @@ export const logActivitySchema = z
     if (!v.follow_up_due_at) {
       ctx.addIssue({ code: "custom", path: ["follow_up_due_at"], message: "Indica la fecha del seguimiento" });
     }
-    if (v.new_status === "do_not_contact") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["schedule_follow_up"],
-        message: 'No se pueden programar seguimientos para "No contactar"',
-      });
-    }
   });
 
 export type LogActivityInput = z.input<typeof logActivitySchema>;

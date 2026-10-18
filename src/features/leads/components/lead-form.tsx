@@ -17,22 +17,33 @@ import {
   TextField,
 } from "@/components/form/fields";
 import { leadSchema, type LeadFormInput } from "@/lib/validation/lead";
+import { PostalCodeFields } from "@/features/postal-codes/components/postal-code-fields";
+import { productOptions, type Product } from "@/features/products/catalog";
 import { createLead, updateLead } from "../actions";
-import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_STATUSES, LEAD_STATUS_LABELS, isClosedStatus } from "../constants";
+import {
+  FUNERAL_INSURANCE_LABELS,
+  FUNERAL_INSURANCE_OPTIONS,
+  LEAD_PRIORITIES,
+  LEAD_PRIORITY_LABELS,
+  LEAD_STATUSES,
+  LEAD_STATUS_LABELS,
+  isClosedStatus,
+} from "../constants";
 
 const statusOptions = LEAD_STATUSES.map((s) => ({ value: s, label: LEAD_STATUS_LABELS[s] }));
 const priorityOptions = LEAD_PRIORITIES.map((p) => ({ value: p, label: LEAD_PRIORITY_LABELS[p] }));
+const funeralOptions = FUNERAL_INSURANCE_OPTIONS.map((v) => ({ value: v, label: FUNERAL_INSURANCE_LABELS[v] }));
 
 export function LeadForm({
   mode,
   leadId,
   defaultValues,
-  productOptions,
+  products,
 }: {
   mode: "create" | "edit";
   leadId?: string;
   defaultValues: LeadFormInput;
-  productOptions: string[];
+  products: Product[];
 }) {
   const router = useRouter();
   const form = useForm({ resolver: zodResolver(leadSchema), defaultValues, mode: "onBlur" });
@@ -64,14 +75,13 @@ export function LeadForm({
               <TextField name="full_name" label="Nombre y apellidos" autoComplete="off" required className="sm:col-span-2" />
               <TextField name="phone" label="Teléfono" type="tel" inputMode="tel" autoComplete="off" placeholder="600 123 456" />
               <TextField name="email" label="Email" type="email" inputMode="email" autoComplete="off" />
-              <TextField name="locality" label="Localidad" autoComplete="off" />
-              <TextField name="customer_reference" label="Referencia de cliente" autoComplete="off" />
-              <TextField
-                name="current_policies"
-                label="Pólizas actuales"
-                placeholder="Auto, Hogar"
-                description="Separa varias con comas."
-                className="sm:col-span-2"
+              <PostalCodeFields />
+              <TextField name="customer_reference" label="Número de póliza" autoComplete="off" />
+              <SelectField
+                name="has_funeral_insurance"
+                label="¿Tiene seguro de decesos?"
+                options={funeralOptions}
+                description="Déjalo en «Sin indicar» si aún no lo sabes."
               />
             </FieldGroup>
           </CardContent>
@@ -83,13 +93,12 @@ export function LeadForm({
           </CardHeader>
           <CardContent>
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <TextField name="product_to_offer" label="Producto a ofrecer" list="product-options" autoComplete="off" />
-              <datalist id="product-options">
-                {productOptions.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-              <TextField name="source" label="Origen de la ficha" placeholder="Listado de octubre, recomendación…" />
+              <SelectField
+                name="product_code"
+                label="Producto"
+                options={productOptions(products, defaultValues.product_code)}
+                emptyLabel="Sin producto"
+              />
               <SelectField name="status" label="Estado" options={statusOptions} required />
               <SelectField name="priority" label="Prioridad" options={priorityOptions} required />
               <TextField name="received_at" label="Fecha de recepción" type="datetime-local" description={mode === "create" ? "Si lo dejas vacío se usa la fecha actual." : undefined} />
@@ -109,8 +118,7 @@ export function LeadForm({
             </CardHeader>
             <CardContent>
               <FieldGroup className="grid gap-4 sm:grid-cols-2">
-                <TextField name="follow_up_title" label="Qué hacer" placeholder="Primer contacto" />
-                <TextField name="follow_up_due_at" label="Cuándo" type="datetime-local" />
+                <TextField name="follow_up_due_at" label="Fecha del primer contacto" type="datetime-local" />
               </FieldGroup>
             </CardContent>
           </Card>

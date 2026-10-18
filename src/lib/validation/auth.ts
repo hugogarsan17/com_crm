@@ -39,6 +39,22 @@ export const resetPasswordSchema = z
     message: "Las contraseñas no coinciden",
   });
 
+export const changePasswordSchema = z
+  .object({
+    current_password: z.string().min(1, "Introduce tu contraseña actual"),
+    password: passwordSchema,
+    confirm_password: z.string(),
+  })
+  .refine((v) => v.password === v.confirm_password, {
+    path: ["confirm_password"],
+    message: "Las contraseñas no coinciden",
+  })
+  .refine((v) => v.password !== v.current_password, {
+    path: ["password"],
+    message: "La nueva contraseña debe ser distinta de la actual",
+  });
+
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type RegisterInput = z.input<typeof registerSchema>;
 export type ForgotPasswordInput = z.input<typeof forgotPasswordSchema>;

@@ -13,18 +13,21 @@ const reportSchema = z.object({
   policies_contracted: num,
   leads_with_policy: num,
   rejected: num,
-  keeps_conditions: num,
   premium_total: num,
-  estimated_commission: num,
+  policy_value_total: num,
+  calculated_commission: num,
+  policies_without_commission: num,
   confirmed_commission: num,
   paid_commission: num,
   by_product: z
     .array(
       z.object({
         product: z.string(),
+        product_code: z.string().nullable().catch(null),
         policies: num,
         premium_total: num,
-        estimated_commission: num,
+        policy_value_total: num,
+        calculated_commission: num,
         confirmed_commission: num,
         paid_commission: num,
       }),
@@ -36,15 +39,16 @@ export type Report = z.infer<typeof reportSchema>;
 
 const dashboardSchema = z.object({
   pending_contact: num,
-  interested: num,
+  proposals: num,
   open_without_next_action: num,
   follow_ups_today: num,
   follow_ups_overdue: num,
   leads_received: num,
   policies_contracted: num,
   rejected: num,
-  keeps_conditions: num,
-  estimated_commission: num,
+  policy_value_total: num,
+  calculated_commission: num,
+  policies_without_commission: num,
   confirmed_commission: num,
   paid_commission: num,
 });
@@ -57,7 +61,6 @@ const seriesSchema = z.array(
     contacted: num,
     contracted: num,
     rejected: num,
-    keeps_conditions: num,
   }),
 );
 

@@ -104,7 +104,7 @@ export function TaskActions({
                 </DropdownMenuItem>
               ))}
               <DropdownMenuItem onSelect={() => setCustomOpen(true)}>
-                <CalendarClockIcon /> Elegir fecha…
+                <CalendarClockIcon /> Reprogramar (elegir fecha)…
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setConfirm("cancel")}>
@@ -121,7 +121,7 @@ export function TaskActions({
       <Dialog open={customOpen} onOpenChange={setCustomOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Posponer seguimiento</DialogTitle>
+            <DialogTitle>Reprogramar seguimiento</DialogTitle>
             <DialogDescription>Elige la nueva fecha y hora.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">

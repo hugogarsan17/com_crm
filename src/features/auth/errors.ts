@@ -19,6 +19,13 @@ export function authErrorMessage(error: unknown): string {
       return "Ya existe una cuenta con este email. Inicia sesión o recupera tu contraseña.";
     case "same_password":
       return "La nueva contraseña debe ser distinta de la actual.";
+    case "reauthentication_needed":
+    case "reauthentication_not_valid":
+      return "Por seguridad hay que confirmar tu identidad: cierra sesión, vuelve a entrar y repite el cambio, o usa «He olvidado mi contraseña».";
+    case "current_password_mismatch":
+      return "La contraseña actual no es correcta.";
+    case "current_password_required":
+      return "Introduce tu contraseña actual.";
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":
       return "Demasiados intentos en poco tiempo. Espera unos minutos y vuelve a intentarlo.";

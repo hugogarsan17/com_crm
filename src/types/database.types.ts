@@ -39,8 +39,12 @@ export type Database = {
           full_name: string;
           phone: string | null;
           email: string | null;
+          postal_code: string | null;
           locality: string | null;
           customer_reference: string | null;
+          has_funeral_insurance: boolean | null;
+          product_code: string | null;
+          legacy_status: string | null;
           current_policies: string[];
           product_to_offer: string | null;
           source: string | null;
@@ -66,8 +70,11 @@ export type Database = {
           full_name: string;
           phone?: string | null;
           email?: string | null;
+          postal_code?: string | null;
           locality?: string | null;
           customer_reference?: string | null;
+          has_funeral_insurance?: boolean | null;
+          product_code?: string | null;
           current_policies?: string[];
           product_to_offer?: string | null;
           source?: string | null;
@@ -85,8 +92,11 @@ export type Database = {
           full_name?: string;
           phone?: string | null;
           email?: string | null;
+          postal_code?: string | null;
           locality?: string | null;
           customer_reference?: string | null;
+          has_funeral_insurance?: boolean | null;
+          product_code?: string | null;
           current_policies?: string[];
           product_to_offer?: string | null;
           source?: string | null;
@@ -98,7 +108,15 @@ export type Database = {
           closed_reason?: string | null;
           archived_at?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "leads_product_code_fkey";
+            columns: ["product_code"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["code"];
+          },
+        ];
       };
       activities: {
         Row: {
@@ -163,6 +181,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          lead_id?: string;
           title?: string;
           description?: string | null;
           due_at?: string;
@@ -185,8 +204,12 @@ export type Database = {
           user_id: string;
           lead_id: string;
           product_name: string;
+          product_code: string | null;
           contracted_at: string | null;
           premium_amount: number | null;
+          policy_value: number | null;
+          commission_rate: number | null;
+          calculated_commission: number | null;
           estimated_commission: number | null;
           confirmed_commission: number | null;
           commission_status: Database["public"]["Enums"]["commission_status"];
@@ -199,8 +222,10 @@ export type Database = {
           user_id?: string;
           lead_id: string;
           product_name: string;
+          product_code?: string | null;
           contracted_at?: string | null;
           premium_amount?: number | null;
+          policy_value?: number | null;
           estimated_commission?: number | null;
           confirmed_commission?: number | null;
           commission_status?: Database["public"]["Enums"]["commission_status"];
@@ -210,8 +235,10 @@ export type Database = {
         };
         Update: {
           product_name?: string;
+          product_code?: string | null;
           contracted_at?: string | null;
           premium_amount?: number | null;
+          policy_value?: number | null;
           estimated_commission?: number | null;
           confirmed_commission?: number | null;
           commission_status?: Database["public"]["Enums"]["commission_status"];
@@ -224,6 +251,134 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "leads";
             referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "policies_product_code_fkey";
+            columns: ["product_code"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["code"];
+          },
+        ];
+      };
+      products: {
+        Row: {
+          code: string;
+          label: string;
+          sort_order: number;
+          active: boolean;
+        };
+        Insert: {
+          code: string;
+          label: string;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Update: {
+          label?: string;
+          sort_order?: number;
+          active?: boolean;
+        };
+        Relationships: [];
+      };
+      commission_rules: {
+        Row: {
+          id: string;
+          user_id: string;
+          product_code: string | null;
+          rate_percent: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          product_code?: string | null;
+          rate_percent: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          product_code?: string | null;
+          rate_percent?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commission_rules_product_code_fkey";
+            columns: ["product_code"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["code"];
+          },
+        ];
+      };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          email_enabled: boolean;
+          notify_upcoming: boolean;
+          upcoming_hours: number;
+          notify_overdue: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          email_enabled?: boolean;
+          notify_upcoming?: boolean;
+          upcoming_hours?: number;
+          notify_overdue?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          email_enabled?: boolean;
+          notify_upcoming?: boolean;
+          upcoming_hours?: number;
+          notify_overdue?: boolean;
+        };
+        Relationships: [];
+      };
+      notification_log: {
+        Row: {
+          id: string;
+          user_id: string;
+          task_id: string;
+          kind: string;
+          due_at: string;
+          status: string;
+          attempts: number;
+          provider_message_id: string | null;
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          task_id: string;
+          kind: string;
+          due_at: string;
+          status?: string;
+          attempts?: number;
+          provider_message_id?: string | null;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: string;
+          attempts?: number;
+          provider_message_id?: string | null;
+          error?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -258,9 +413,13 @@ export type Database = {
         Args: { p_from: string; p_to: string; p_tz?: string; p_bucket?: string };
         Returns: Json;
       };
-      get_product_options: {
+      recalculate_missing_commissions: {
         Args: Record<PropertyKey, never>;
-        Returns: Json;
+        Returns: number;
+      };
+      commission_rate_for: {
+        Args: { p_user_id: string; p_product_code: string | null };
+        Returns: number | null;
       };
       find_lead_duplicates: {
         Args: { p_phones?: string[]; p_emails?: string[]; p_references?: string[] };
@@ -284,12 +443,9 @@ export type Database = {
         | "pending_contact"
         | "no_answer"
         | "follow_up"
-        | "interested"
         | "proposal_in_progress"
         | "policy_contracted"
-        | "rejected"
-        | "keeps_current_conditions"
-        | "do_not_contact";
+        | "rejected";
       lead_priority: "low" | "normal" | "high";
       task_status: "pending" | "completed" | "cancelled";
       commission_status: "pending" | "confirmed" | "paid";

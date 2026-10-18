@@ -9,7 +9,7 @@ import { CLOSED_LEAD_STATUSES, LEADS_PAGE_SIZE } from "./constants";
 import type { LeadFilters } from "./search-params";
 
 export const LEAD_LIST_COLUMNS =
-  "id, full_name, phone, email, customer_reference, locality, product_to_offer, status, priority, next_action, next_follow_up_at, last_outcome, last_contact_at, received_at, archived_at" as const;
+  "id, full_name, phone, email, customer_reference, postal_code, locality, has_funeral_insurance, product_code, legacy_status, status, priority, next_action, next_follow_up_at, last_outcome, last_contact_at, received_at, archived_at" as const;
 
 export type LeadListItem = Pick<
   Tables<"leads">,
@@ -18,8 +18,11 @@ export type LeadListItem = Pick<
   | "phone"
   | "email"
   | "customer_reference"
+  | "postal_code"
   | "locality"
-  | "product_to_offer"
+  | "has_funeral_insurance"
+  | "product_code"
+  | "legacy_status"
   | "status"
   | "priority"
   | "next_action"
@@ -29,10 +32,6 @@ export type LeadListItem = Pick<
   | "received_at"
   | "archived_at"
 >;
-
-function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
 
 export async function listLeads(filters: LeadFilters) {
   const { user, supabase } = await requireUser();
@@ -64,7 +63,9 @@ export async function listLeads(filters: LeadFilters) {
     query = query.eq("status", filters.status);
   }
   if (filters.priority) query = query.eq("priority", filters.priority);
-  if (filters.product) query = query.ilike("product_to_offer", escapeLike(filters.product));
+  if (filters.product) query = query.eq("product_code", filters.product);
+  if (filters.funeral === "unknown") query = query.is("has_funeral_insurance", null);
+  else if (filters.funeral) query = query.eq("has_funeral_insurance", filters.funeral === "yes");
   if (filters.from) query = query.gte("received_at", localDateTimeToIso(`${filters.from}T00:00`, user.timezone));
   if (filters.to) query = query.lte("received_at", localDateTimeToIso(`${filters.to}T23:59`, user.timezone));
 
@@ -129,10 +130,4 @@ export async function getLeadForEdit(id: string) {
   if (error) throw new Error("No se pudo cargar la ficha.");
   if (!data) notFound();
   return { user, lead: data };
-}
-
-export async function getProductOptions() {
-  const { supabase } = await requireUser();
-  const { data } = await supabase.rpc("get_product_options");
-  return Array.isArray(data) ? data.filter((p): p is string => typeof p === "string") : [];
 }

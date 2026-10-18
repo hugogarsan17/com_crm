@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { callAction } from "@/components/form/fields";
+import type { Product } from "@/features/products/catalog";
 import { toCsv } from "@/lib/csv";
 import { IMPORT_BATCH_SIZE, type ImportRow } from "@/lib/validation/import";
 import { checkDuplicates, importLeadsBatch } from "../actions";
@@ -68,7 +69,7 @@ function downloadText(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ImportWizard({ timezone }: { timezone: string }) {
+export function ImportWizard({ timezone, products }: { timezone: string; products: Product[] }) {
   const [step, setStep] = useState<Step>("upload");
   const [encoding, setEncoding] = useState("UTF-8");
   const [fileName, setFileName] = useState("");
@@ -154,7 +155,7 @@ export function ImportWizard({ timezone }: { timezone: string }) {
     }
     setError(null);
     setBusy(true);
-    const parsed = validateRecords(records, mapping, timezone);
+    const parsed = validateRecords(records, mapping, timezone, products);
     const result = await callAction(() => checkDuplicates(collectKeys(parsed)));
     setBusy(false);
     if (!result.ok) {
@@ -338,7 +339,7 @@ export function ImportWizard({ timezone }: { timezone: string }) {
                 <div>
                   <Label htmlFor="include-dups">Importar también los posibles duplicados</Label>
                   <p className="text-sm text-muted-foreground">
-                    Por defecto se omiten las filas cuyo teléfono, email o referencia ya existe en tus fichas o se repite en el archivo.
+                    Por defecto se omiten las filas cuyo teléfono, email o número de póliza ya existe en tus fichas o se repite en el archivo.
                   </p>
                 </div>
               </div>

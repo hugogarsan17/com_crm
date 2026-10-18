@@ -1,10 +1,11 @@
-import { BarChart3Icon, CalendarCheckIcon, HomeIcon, SettingsIcon, UploadIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { BarChart3Icon, CalendarCheckIcon, CalendarDaysIcon, HomeIcon, SettingsIcon, UploadIcon, UsersIcon, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; shortLabel: string; icon: LucideIcon; mobile: boolean };
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Para hoy", shortLabel: "Hoy", icon: HomeIcon, mobile: true },
   { href: "/leads", label: "Fichas", shortLabel: "Fichas", icon: UsersIcon, mobile: true },
+  { href: "/calendar", label: "Calendario", shortLabel: "Agenda", icon: CalendarDaysIcon, mobile: true },
   { href: "/tasks", label: "Seguimientos", shortLabel: "Tareas", icon: CalendarCheckIcon, mobile: true },
   { href: "/reports", label: "Informes", shortLabel: "Informes", icon: BarChart3Icon, mobile: true },
   { href: "/leads/import", label: "Importar CSV", shortLabel: "Importar", icon: UploadIcon, mobile: false },

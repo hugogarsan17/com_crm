@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { hasCredentials, login } from "./helpers";
 
 test.describe("rutas privadas", () => {
-  for (const path of ["/dashboard", "/leads", "/leads/new", "/tasks", "/reports", "/settings"]) {
+  for (const path of ["/dashboard", "/leads", "/leads/new", "/calendar", "/tasks", "/reports", "/settings"]) {
     test(`${path} redirige a /login sin sesión`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(`/login\\?next=${encodeURIComponent(path).replace(/%2F/g, "(%2F|/)")}`));
@@ -13,6 +13,13 @@ test.describe("rutas privadas", () => {
   test("las exportaciones exigen sesión", async ({ request }) => {
     const res = await request.get("/api/export/leads");
     expect(res.status()).toBe(401);
+    expect((await request.get("/api/postal-codes/28001")).status()).toBe(401);
+  });
+
+  test("la tarea programada de avisos exige el secreto", async ({ request }) => {
+    const res = await request.get("/api/cron/notifications", { headers: { Authorization: "Bearer incorrecto" } });
+    // 401 con CRON_SECRET configurado; 503 (con instrucciones) si falta.
+    expect([401, 503]).toContain(res.status());
   });
 });
 

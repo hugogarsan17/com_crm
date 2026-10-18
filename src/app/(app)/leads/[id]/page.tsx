@@ -7,11 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityTimeline } from "@/features/activities/components/activity-timeline";
 import { ACTIVITY_OUTCOME_LABELS } from "@/features/activities/constants";
-import { LeadStatusBadge, PriorityBadge } from "@/features/leads/components/badges";
+import { FuneralInsuranceBadge, LeadStatusBadge, PriorityBadge } from "@/features/leads/components/badges";
 import { LeadDetailActions } from "@/features/leads/components/lead-detail-actions";
-import { OPEN_NEEDS_FOLLOW_UP } from "@/features/leads/constants";
+import { OPEN_NEEDS_FOLLOW_UP, RETIRED_LEAD_STATUS_LABELS } from "@/features/leads/constants";
 import { getLeadDetail } from "@/features/leads/queries";
+import { sumCommissions } from "@/features/commissions/calc";
+import { getCommissionRules } from "@/features/commissions/queries";
 import { PoliciesSection } from "@/features/policies/components/policies-section";
+import { productLabel } from "@/features/products/catalog";
+import { getProducts } from "@/features/products/queries";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { isoToLocalDateTime, localDateTimeFromNow, todayInTimeZone } from "@/lib/dates";
 import { formatCurrency, formatDateTime } from "@/lib/format";
@@ -58,7 +62,7 @@ function HeaderSkeleton() {
 }
 
 async function LeadHeader({ params }: { params: Params }) {
-  const { user, lead } = await loadDetail(params);
+  const [{ user, lead }, products, rules] = await Promise.all([loadDetail(params), getProducts(), getCommissionRules()]);
   const tz = user.timezone;
   const needsNextAction = OPEN_NEEDS_FOLLOW_UP.includes(lead.status) && !lead.next_follow_up_at;
   return (
@@ -74,10 +78,21 @@ async function LeadHeader({ params }: { params: Params }) {
           <AlertDescription>Ficha archivada el {formatDateTime(lead.archived_at, tz)}. No aparece en tus listas ni bandejas.</AlertDescription>
         </Alert>
       ) : null}
-      {lead.status === "do_not_contact" ? (
+      {lead.legacy_status === "do_not_contact" ? (
         <Alert variant="destructive">
           <AlertTriangleIcon />
-          <AlertDescription>Este cliente ha pedido que no se le contacte.</AlertDescription>
+          <AlertDescription>
+            Esta ficha estaba marcada como «No contactar» (estado retirado). Se ha cerrado como rechazada; respeta la
+            petición del cliente antes de volver a contactarle.
+          </AlertDescription>
+        </Alert>
+      ) : lead.legacy_status ? (
+        <Alert>
+          <AlertTriangleIcon />
+          <AlertDescription>
+            Estado anterior: «{RETIRED_LEAD_STATUS_LABELS[lead.legacy_status] ?? lead.legacy_status}» (retirado). Revisa que el
+            estado actual sea correcto.
+          </AlertDescription>
         </Alert>
       ) : null}
       {needsNextAction ? (
@@ -88,6 +103,8 @@ async function LeadHeader({ params }: { params: Params }) {
       ) : null}
       <LeadDetailActions
         lead={lead}
+        products={products}
+        rules={rules}
         nowLocal={isoToLocalDateTime(new Date().toISOString(), tz)}
         tomorrowLocal={localDateTimeFromNow(tz, 1)}
         today={todayInTimeZone(tz)}
@@ -109,18 +126,20 @@ async function NextFollowUp({ params }: { params: Params }) {
 }
 
 async function ClientData({ params }: { params: Params }) {
-  const { user, lead } = await loadDetail(params);
+  const [{ user, lead }, products] = await Promise.all([loadDetail(params), getProducts()]);
   const tz = user.timezone;
   return (
     <>
       <dl className="grid grid-cols-2 gap-3">
         <Info label="Teléfono">{lead.phone}</Info>
         <Info label="Email">{lead.email}</Info>
+        <Info label="Código postal">{lead.postal_code}</Info>
         <Info label="Localidad">{lead.locality}</Info>
-        <Info label="Referencia">{lead.customer_reference}</Info>
-        <Info label="Pólizas actuales">{lead.current_policies.join(", ")}</Info>
-        <Info label="Producto a ofrecer">{lead.product_to_offer}</Info>
-        <Info label="Origen">{lead.source}</Info>
+        <Info label="Número de póliza">{lead.customer_reference}</Info>
+        <Info label="Producto">{lead.product_code ? productLabel(products, lead.product_code) : null}</Info>
+        <Info label="Seguro de decesos">
+          <FuneralInsuranceBadge value={lead.has_funeral_insurance} />
+        </Info>
         <Info label="Recibida">{formatDateTime(lead.received_at, tz)}</Info>
         <Info label="Último resultado">
           {lead.last_outcome ? `${ACTIVITY_OUTCOME_LABELS[lead.last_outcome]} · ${formatDateTime(lead.last_contact_at, tz)}` : null}
@@ -141,23 +160,26 @@ async function ClientData({ params }: { params: Params }) {
 async function CommissionTotals({ params }: { params: Params }) {
   const { policies } = await loadDetail(params);
   if (!policies.length) return null;
-  const totals = policies.reduce(
-    (acc, p) => ({
-      estimated: acc.estimated + (p.estimated_commission ?? 0),
-      confirmed: acc.confirmed + (p.commission_status !== "pending" ? (p.confirmed_commission ?? 0) : 0),
-    }),
-    { estimated: 0, confirmed: 0 },
-  );
+  const totals = sumCommissions(policies);
   return (
     <p className="text-sm text-muted-foreground">
-      Estimada {formatCurrency(totals.estimated)} · Confirmada {formatCurrency(totals.confirmed)}
+      Calculada {formatCurrency(totals.calculated)} · Confirmada {formatCurrency(totals.confirmed)}
+      {totals.missing ? ` · ${totals.missing} sin calcular` : ""}
     </p>
   );
 }
 
 async function Policies({ params }: { params: Params }) {
-  const { user, lead, policies } = await loadDetail(params);
-  return <PoliciesSection policies={policies} leadId={lead.id} today={todayInTimeZone(user.timezone)} />;
+  const [{ user, lead, policies }, products, rules] = await Promise.all([loadDetail(params), getProducts(), getCommissionRules()]);
+  return (
+    <PoliciesSection
+      policies={policies}
+      leadId={lead.id}
+      today={todayInTimeZone(user.timezone)}
+      products={products}
+      rules={rules}
+    />
+  );
 }
 
 async function Tasks({ params }: { params: Params }) {

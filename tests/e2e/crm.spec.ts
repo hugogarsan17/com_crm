@@ -21,22 +21,34 @@ test.describe("flujo del comercial", () => {
     await expect(page.getByText(/Teléfono no válido/)).toBeVisible();
     await page.getByLabel("Teléfono").fill("600 123 987");
     await page.getByLabel("Email").fill("cliente.demo@example.test");
-    await page.getByLabel("Producto a ofrecer").fill("Hogar");
+    const policyNumber = `POL-${Date.now().toString(36)}`;
+    await page.getByLabel("Número de póliza").fill(policyNumber);
+    await choose(page, "¿Tiene seguro de decesos?", "No");
+    await choose(page, "Producto", "Hogar");
+    await expect(page.getByLabel("Producto a ofrecer")).toHaveCount(0);
+    await expect(page.getByLabel("Origen de la ficha")).toHaveCount(0);
     await page.getByRole("button", { name: "Crear ficha" }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await expect(page.getByText("Pendiente de contactar").first()).toBeVisible();
+    await expect(page.getByText(policyNumber)).toBeVisible();
+    await expect(page.getByText("Decesos: no")).toBeVisible();
     const leadUrl = page.url();
 
-    // Buscar
+    // Buscar por teléfono y por número de póliza
     await page.goto("/leads");
     await page.getByLabel("Buscar fichas").fill("123 987");
     await expect(page.getByRole("link", { name }).first()).toBeVisible();
+    await page.getByLabel("Buscar fichas").fill(policyNumber);
+    await expect(page.getByRole("link", { name }).first()).toBeVisible();
 
-    // Editar
+    // Editar: la localidad se completa con el código postal y sigue siendo editable
     await page.goto(`${leadUrl}/edit`);
+    await page.getByLabel("Código postal").fill("28001");
+    await expect(page.getByLabel("Localidad")).toHaveValue("Madrid", { timeout: 10_000 });
     await page.getByLabel("Localidad").fill("Villa Ejemplo");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(page.getByText("Villa Ejemplo")).toBeVisible();
+    await expect(page.getByText("28001")).toBeVisible();
 
     // Registrar llamada con seguimiento
     await page.getByRole("button", { name: "Registrar contacto" }).click();
@@ -50,7 +62,7 @@ test.describe("flujo del comercial", () => {
     await expect(page.getByText("Llamada · Interesado")).toBeVisible();
     await expect(page.getByText("Le interesa el seguro de hogar")).toBeVisible();
     await expect(page.getByText("Enviar presupuesto").first()).toBeVisible();
-    await expect(page.getByText("Interesado", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("En seguimiento", { exact: true }).first()).toBeVisible();
 
     // El seguimiento aparece en Próximas y se completa
     await page.goto("/tasks?view=upcoming");
@@ -61,22 +73,26 @@ test.describe("flujo del comercial", () => {
     await page.goto("/tasks?view=completed");
     await expect(page.getByRole("listitem").filter({ hasText: name })).toBeVisible();
 
-    // Registrar póliza contratada con comisión manual
+    // Registrar póliza contratada: la comisión se calcula con el valor de póliza y la regla configurada
+    await page.goto("/settings#comisiones");
+    await page.getByLabel("Hogar (%)").fill("10");
+    await page.getByRole("button", { name: "Guardar porcentajes" }).click();
+    await expect(page.getByText("Reglas de comisión guardadas")).toBeVisible();
     await page.goto(leadUrl);
     await page.getByRole("button", { name: "Póliza", exact: true }).click();
     const policy = page.getByRole("dialog");
-    await policy.getByLabel("Prima (€)").fill("-5");
+    await policy.getByLabel("Valor de póliza (€)").fill("-5");
     await policy.getByRole("button", { name: "Registrar póliza" }).click();
     await expect(policy.getByText("El importe no puede ser negativo")).toBeVisible();
-    await policy.getByLabel("Prima (€)").fill("320,00");
-    await policy.getByLabel("Comisión estimada (€)").fill("32,50");
+    await policy.getByLabel("Valor de póliza (€)").fill("325,00");
+    await expect(policy.getByText(/32,50\s€/)).toBeVisible();
     await policy.getByLabel("Comisión confirmada (€)").fill("30");
     await choose(page, "Estado de la comisión", "Confirmada");
     await policy.getByRole("button", { name: "Registrar póliza" }).click();
     await expect(policy).toBeHidden();
     await expect(page.getByText("Póliza contratada").first()).toBeVisible();
     await expect(page.getByText("Comisión confirmada")).toBeVisible();
-    await expect(page.getByText(/Estimada 32,50\s€/)).toBeVisible();
+    await expect(page.getByText(/Calculada 32,50\s€/)).toBeVisible();
 
     // El panel refleja los datos reales
     await page.goto("/dashboard");
@@ -101,18 +117,23 @@ test.describe("flujo del comercial", () => {
     await expect(page).toHaveURL(/\/leads$/);
   });
 
-  test("cerrar como rechazada y como mantiene condiciones", async ({ page }) => {
+  test("cerrar como rechazada; los estados retirados no aparecen", async ({ page }) => {
     await login(page);
-    for (const [label, status] of [
-      ["Rechazada", "Rechazado"],
-      ["Mantiene condiciones", "Mantiene condiciones"],
-    ] as const) {
+    await page.goto("/leads");
+    await page.getByRole("combobox", { name: "Estado" }).click();
+    for (const retired of ["Interesado", "Mantiene condiciones", "No contactar"]) {
+      await expect(page.getByRole("option", { name: retired, exact: true })).toHaveCount(0);
+    }
+    await page.keyboard.press("Escape");
+    for (const [label, status] of [["Rechazada", "Rechazado"]] as const) {
       const name = uniqueName(`Cierre ${label}`);
       await page.goto("/leads/new");
       await page.getByLabel("Nombre y apellidos").fill(name);
       await page.getByRole("button", { name: "Crear ficha" }).click();
       await expect(page.getByRole("heading", { name })).toBeVisible();
       await page.getByRole("button", { name: "Más acciones de la ficha" }).click();
+      await expect(page.getByRole("menuitem", { name: "Mantiene condiciones" })).toHaveCount(0);
+      await expect(page.getByRole("menuitem", { name: "No contactar" })).toHaveCount(0);
       await page.getByRole("menuitem", { name: label }).click();
       await page.getByLabel("Motivo (opcional)").fill("Precio");
       await page.getByRole("button", { name: `Marcar como «${status}»` }).click();
@@ -134,7 +155,7 @@ test.describe("flujo del comercial", () => {
     writeFileSync(
       file,
       [
-        "Nombre;Teléfono;Email;Referencia;Producto",
+        "Nombre;Teléfono;Email;Número de póliza;Producto",
         `Import Uno ${tag};611${tag.slice(-6).replace(/\D/g, "0").padStart(6, "0")};uno-${tag}@example.test;R-${tag}-1;Vida`,
         `Import Dos ${tag};;dos-${tag}@example.test;R-${tag}-2;Auto`,
         `Import Repetido ${tag};;uno-${tag}@example.test;;Vida`,
@@ -148,6 +169,7 @@ test.describe("flujo del comercial", () => {
     await page.getByRole("button", { name: "Validar filas" }).click();
     await expect(page.getByText("Revisa antes de importar")).toBeVisible();
     await expect(page.getByText(/Duplicado por email con Import Uno/)).toBeVisible();
+    await expect(page.getByText(/fuera del catálogo/)).toHaveCount(0);
     await expect(page.getByText(/Falta el nombre/)).toBeVisible();
     await page.getByRole("button", { name: "Importar 2 fichas" }).click();
     await expect(page.getByText("2 fichas importadas")).toBeVisible();
@@ -169,6 +191,52 @@ test.describe("flujo del comercial", () => {
       await page.getByRole("button", { name: "Eliminar", exact: true }).click();
       await expect(page).toHaveURL(/\/leads$/);
     }
+  });
+
+  test("calendario: crear una tarea vinculada a una ficha y verla en «Para hoy»", async ({ page }) => {
+    const name = uniqueName("Calendario Demo");
+    await login(page);
+    await page.goto("/leads/new");
+    await page.getByLabel("Nombre y apellidos").fill(name);
+    await page.getByRole("button", { name: "Crear ficha" }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    const leadUrl = page.url();
+
+    await page.goto("/calendar?view=day");
+    await page.getByRole("button", { name: "Nueva tarea" }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Ficha del cliente").fill(name);
+    await dialog.getByRole("option", { name: new RegExp(name) }).click();
+    await dialog.getByLabel("Qué hacer").fill("Llamada de calendario");
+    const now = new Date(Date.now() + 5 * 60_000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    await dialog.getByLabel("Cuándo").fill(`${today}T23:59`);
+    await dialog.getByRole("button", { name: "Programar" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: new RegExp(`${name}.*Llamada de calendario`) }).click();
+    await expect(page.getByRole("link", { name: "Abrir ficha" })).toBeVisible();
+
+    await page.goto("/dashboard");
+    await expect(page.getByText("Llamada de calendario").first()).toBeVisible();
+
+    // Limpieza
+    await page.goto(leadUrl);
+    await page.getByRole("button", { name: "Más acciones de la ficha" }).click();
+    await page.getByRole("menuitem", { name: "Eliminar definitivamente" }).click();
+    await page.getByLabel("Escribe ELIMINAR para confirmar").fill("ELIMINAR");
+    await page.getByRole("button", { name: "Eliminar", exact: true }).click();
+    await expect(page).toHaveURL(/\/leads$/);
+  });
+
+  test("cambio de contraseña: valida antes de enviar", async ({ page }) => {
+    await login(page);
+    await page.goto("/settings");
+    await page.getByLabel("Contraseña actual").fill("cualquiera1");
+    await page.getByLabel("Nueva contraseña").fill("nueva12345");
+    await page.getByLabel("Repite la nueva contraseña").fill("distinta123");
+    await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+    await expect(page.getByText("Las contraseñas no coinciden")).toBeVisible();
   });
 
   test("navegación móvil @mobile", async ({ page }) => {

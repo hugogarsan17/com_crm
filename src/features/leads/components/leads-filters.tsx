@@ -7,12 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SORTS, LEAD_STATUSES, LEAD_STATUS_LABELS } from "../constants";
+import { productOptions, type Product } from "@/features/products/catalog";
+import {
+  FUNERAL_INSURANCE_LABELS,
+  FUNERAL_INSURANCE_OPTIONS,
+  LEAD_PRIORITIES,
+  LEAD_PRIORITY_LABELS,
+  LEAD_SORTS,
+  LEAD_STATUSES,
+  LEAD_STATUS_LABELS,
+} from "../constants";
 import { leadFiltersToSearch, type LeadFilters } from "../search-params";
 
 const ALL = "__all__";
 
-export function LeadsFilters({ filters, productOptions }: { filters: LeadFilters; productOptions: string[] }) {
+export function LeadsFilters({ filters, products }: { filters: LeadFilters; products: Product[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
@@ -31,7 +40,9 @@ export function LeadsFilters({ filters, productOptions }: { filters: LeadFilters
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const hasFilters = Boolean(filters.q || filters.status || filters.priority || filters.product || filters.from || filters.to);
+  const hasFilters = Boolean(
+    filters.q || filters.status || filters.priority || filters.product || filters.funeral || filters.from || filters.to,
+  );
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border bg-card p-3" role="search">
@@ -41,7 +52,7 @@ export function LeadsFilters({ filters, productOptions }: { filters: LeadFilters
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nombre, teléfono, email o referencia"
+          placeholder="Buscar por nombre, teléfono, email o número de póliza"
           aria-label="Buscar fichas"
           className="h-10 pl-8"
         />
@@ -50,7 +61,7 @@ export function LeadsFilters({ filters, productOptions }: { filters: LeadFilters
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-7">
         <div className="flex flex-col gap-1">
           <Label htmlFor="f-status" className="text-xs text-muted-foreground">Estado</Label>
           <Select value={filters.status ?? ALL} onValueChange={(v) => apply({ status: v === ALL ? undefined : (v as LeadFilters["status"]) })}>
@@ -94,9 +105,28 @@ export function LeadsFilters({ filters, productOptions }: { filters: LeadFilters
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todos</SelectItem>
-              {productOptions.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
+              {productOptions(products, filters.product).map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="f-funeral" className="text-xs text-muted-foreground">Seguro de decesos</Label>
+          <Select
+            value={filters.funeral ?? ALL}
+            onValueChange={(v) => apply({ funeral: v === ALL ? undefined : (v as LeadFilters["funeral"]) })}
+          >
+            <SelectTrigger id="f-funeral" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos</SelectItem>
+              {FUNERAL_INSURANCE_OPTIONS.map((v) => (
+                <SelectItem key={v} value={v}>
+                  {FUNERAL_INSURANCE_LABELS[v]}
                 </SelectItem>
               ))}
             </SelectContent>

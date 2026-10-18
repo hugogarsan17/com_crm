@@ -1,6 +1,6 @@
 # Cartera CRM
 
-CRM SaaS para comerciales de seguros. Permite gestionar las fichas de clientes recibidas, registrar llamadas y mensajes, programar seguimientos y controlar pólizas contratadas y comisiones (introducidas manualmente).
+CRM SaaS para comerciales de seguros. Permite gestionar las fichas de clientes recibidas, registrar llamadas y mensajes, programar seguimientos en un calendario y controlar pólizas contratadas y comisiones (calculadas con el porcentaje que configura cada comercial).
 
 > Herramienta independiente. No está afiliada a ninguna compañía aseguradora.
 
@@ -19,15 +19,16 @@ CRM SaaS para comerciales de seguros. Permite gestionar las fichas de clientes r
 | Área | Qué incluye |
 |---|---|
 | Autenticación | Registro (nombre, email, contraseña), login, logout, recuperación y restablecimiento de contraseña, confirmación de email, reenvío de confirmación y mensajes de error en español |
-| Para hoy (`/dashboard`) | Seguimientos vencidos y de hoy, fichas pendientes de primer contacto, interesados, fichas abiertas sin próxima acción, resultados del periodo (pólizas, rechazos, mantienen condiciones, comisiones estimada, confirmada y pagada) y gráfico de evolución |
-| Fichas (`/leads`) | Búsqueda por nombre, teléfono, email o referencia; filtros por estado, prioridad, producto y fechas; ordenación; paginación en servidor; archivar y restaurar; eliminación definitiva con confirmación; exportación CSV |
-| Ficha (`/leads/[id]`) | Datos, estado, próximo seguimiento, historial cronológico, tareas, pólizas y comisiones; botones de llamar, WhatsApp y email (los abre el usuario, nunca se envía nada automáticamente); cierre como contratada, rechazada, mantiene condiciones o no contactar |
+| Para hoy (`/dashboard`) | «Pendientes ahora» (vencidos de cualquier mes, hoy, primer contacto, propuestas, sin próxima acción) y «Resultados del mes» (mes en curso por defecto, flechas para meses anteriores y otros periodos): pólizas, rechazos, fichas recibidas, valor de pólizas, comisión calculada, confirmada y pagada, y gráfico |
+| Calendario (`/calendar`) | Seguimientos por día, semana o mes; crear (vinculado a una ficha), editar, completar, cancelar, reprogramar y eliminar; abrir la ficha desde la tarea |
+| Fichas (`/leads`) | Búsqueda por nombre, teléfono, email o número de póliza; filtros por estado, prioridad, producto, seguro de decesos y fechas; ordenación; paginación en servidor; archivar y restaurar; eliminación definitiva con confirmación; exportación CSV |
+| Ficha (`/leads/[id]`) | Código postal con localidad automática, número de póliza, seguro de decesos (sí/no/sin indicar), producto del catálogo, estado, próximo seguimiento, historial, tareas, pólizas y comisiones; botones de llamar, WhatsApp y email (los abre el usuario, nunca se envía nada automáticamente); cierre como contratada o rechazada |
 | Registrar contacto | Canal, resultado, resumen, nuevo estado (sugerido según el resultado) y seguimiento opcional, todo en una única transacción (`log_activity`) |
 | Seguimientos (`/tasks`) | Pestañas Hoy, Vencidas, Próximas, Completadas y Canceladas; completar, posponer (rápido o a una fecha), cancelar, reabrir y abrir la ficha |
-| Pólizas | Producto, fecha, prima y comisiones estimada y confirmada; estado pendiente, confirmada o pagada. Sin cálculo automático |
-| Informes (`/reports`) | Por periodo y producto: recibidas, contactadas, con respuesta, pólizas, rechazos, mantienen condiciones, conversión, primas y comisiones; desglose por producto; exportación CSV |
-| Importación CSV (`/leads/import`) | Carga en el navegador, codificación, asignación de columnas, validación por fila, duplicados (teléfono, email o referencia, contra tus fichas y dentro del archivo), resumen, lotes atómicos y reintento solo de los lotes fallidos |
-| Ajustes | Nombre, zona horaria, exportación de todos los datos (JSON) y eliminación de la cuenta |
+| Pólizas | Producto (desplegable del catálogo), fecha, prima, valor de póliza y comisión calculada automáticamente; comisión confirmada manual; estado pendiente, confirmada o pagada |
+| Informes (`/reports`) | Por periodo (incluido un mes concreto) y producto: recibidas, contactadas, con respuesta, pólizas, rechazos, conversión, primas, valor de pólizas y comisiones; desglose por producto; exportación CSV |
+| Importación CSV (`/leads/import`) | Carga en el navegador, codificación, asignación de columnas (incluye código postal, número de póliza, seguro de decesos y producto del catálogo), validación por fila, duplicados (teléfono, email o número de póliza), resumen, lotes atómicos y reintento solo de los lotes fallidos |
+| Ajustes | Nombre, zona horaria, cambio de contraseña, porcentajes de comisión, avisos por email, exportación de todos los datos (JSON) y eliminación de la cuenta |
 
 ## Estructura
 
@@ -73,10 +74,15 @@ npm run dev                     # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | Sí | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` o `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Sí (una de las dos) | Supabase → Project Settings → API Keys |
 | `NEXT_PUBLIC_SITE_URL` | No | URL pública de la app, para los enlaces de los emails. Si falta, se deduce de la petición |
+| `RESEND_API_KEY` | Solo para avisos | Resend → API Keys. Solo servidor |
+| `NOTIFICATIONS_FROM_EMAIL` | Solo para avisos | Remitente con dominio verificado en Resend, p. ej. `Cartera CRM <avisos@tu-dominio.com>` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Solo para avisos | Supabase → Project Settings → API Keys (service_role o secret key). Solo servidor |
+| `CRON_SECRET` | Solo para avisos | Cadena aleatoria (`openssl rand -hex 32`). Vercel Cron la envía como `Authorization: Bearer …` |
+| `POSTAL_CODE_LOOKUP_URL` | No | Servicio alternativo de códigos postales (por defecto `https://api.zippopotam.us/es`) |
 
 - En desarrollo van en `.env.local` (o `.env`). Están ignorados por git; solo se versiona `.env.example`.
 - En Vercel van en Project → Settings → Environment Variables, para Production y Preview.
-- La clave `service_role` **no** se usa en ninguna parte y no debe añadirse.
+- La clave `service_role` solo la usa la tarea programada de avisos (`/api/cron/notifications`, código `server-only`). Nunca debe llevar el prefijo `NEXT_PUBLIC_`.
 
 ## Base de datos (migraciones)
 
@@ -86,6 +92,12 @@ Las migraciones están en `supabase/migrations/` y se aplican en orden:
 2. `20261017000200_rls_policies.sql`: RLS en todas las tablas, permisos mínimos y políticas por usuario. En las tablas hijas también se comprueba que el lead sea del mismo usuario.
 3. `20261017000300_rpc_functions.sql`: `log_activity`, `get_dashboard_summary`, `get_report`, `get_results_series`, `get_product_options`, `find_lead_duplicates`, `import_leads` y `delete_my_account`.
 4. `20261017000400_hardening.sql`: retira `EXECUTE` de las funciones de trigger e índices para las FK compuestas.
+5. `20261018000100_lead_fields_and_statuses.sql`: código postal, seguro de decesos, número de póliza (etiqueta), retirada de los estados «Interesado», «Mantiene condiciones» y «No contactar» con correspondencia explícita (ver `docs/database.md`).
+6. `20261018000200_products_and_commissions.sql`: catálogo `products`, `leads.product_code`, `policies.product_code`, valor de póliza, reglas de comisión y trigger de cálculo.
+7. `20261018000300_notifications.sql`: preferencias y registro de avisos por email.
+8. `20261018000400_rpc_v2.sql`: panel (pendientes + métricas del periodo), informe por producto del catálogo, serie, importación y `log_activity` con los nuevos tipos.
+
+> Aplica las migraciones **antes** de desplegar este código: la app nueva consulta columnas y tablas que no existen en el esquema anterior.
 
 **Opción A: Supabase CLI** (recomendada)
 
@@ -95,7 +107,7 @@ npx supabase link --project-ref <id-del-proyecto>
 npx supabase db push
 ```
 
-**Opción B: SQL Editor del dashboard**: ejecuta los cuatro archivos en orden.
+**Opción B: SQL Editor del dashboard**: ejecuta los archivos en orden.
 
 Tras cambiar el esquema, regenera los tipos:
 
@@ -131,6 +143,33 @@ Otros ajustes:
 3. Despliega. Después actualiza en Supabase la **Site URL** y las **Redirect URLs** con el dominio de Vercel.
 4. Comprueba registro, confirmación de email, login y recuperación de contraseña en producción.
 
+## Comisiones
+
+La app **no trae ningún porcentaje**. Cada comercial lo configura en **Ajustes → Comisiones**: uno general y, si hace falta, uno por producto (tiene prioridad). Comisión calculada = valor de póliza × porcentaje / 100, redondeada a céntimos en la base de datos. Sin porcentaje o sin valor, la póliza queda «sin calcular» y se indica en la ficha, el panel y los informes. Tras configurar el primer porcentaje, «Calcular pólizas sin comisión» completa las existentes. Cambiar un porcentaje no modifica comisiones ya calculadas.
+
+## Catálogo de productos
+
+Tabla `products` (Decesos, Hogar, Auto, Vida). Para añadir uno, crea una migración nueva:
+
+```sql
+insert into public.products (code, label, sort_order) values ('salud', 'Salud', 50);
+```
+
+Para retirarlo sin perder histórico: `update public.products set active = false where code = '…';`.
+
+## Código postal → localidad
+
+Al escribir un código postal español en la ficha, el servidor consulta [Zippopotam.us](https://zippopotam.us) (datos de GeoNames, gratuito y sin clave) y rellena la localidad si está vacía o conserva el último valor automático. Limitaciones: es un servicio externo sin garantía de disponibilidad, algunos códigos rurales devuelven varias localidades (se ofrece la lista) y los nombres pueden no coincidir con el nombre oficial del INE. Si falla, la localidad se escribe a mano. Los códigos extranjeros se aceptan sin consulta.
+
+## Avisos por email
+
+1. Crea una cuenta en Resend, verifica tu dominio y crea una API key.
+2. En Vercel → Settings → Environment Variables (Production): `RESEND_API_KEY`, `NOTIFICATIONS_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` y `NEXT_PUBLIC_SITE_URL`.
+3. `vercel.json` programa `/api/cron/notifications` cada día a las 06:00 UTC (compatible con el plan Hobby). Con el plan Pro puedes aumentar la frecuencia (p. ej. `0 * * * *`). Alternativa: `pg_cron` + `pg_net` en Supabase llamando al endpoint con la cabecera `Authorization: Bearer <CRON_SECRET>`.
+4. Cada comercial activa los avisos en **Ajustes → Avisos por email** y puede enviarse un email de prueba.
+
+Funcionamiento: un email resumen por usuario con los seguimientos vencidos y/o próximos. Cada aviso (tarea + tipo + vencimiento) se registra en `notification_log` con una restricción única, así que no se repite; si se reprograma la tarea, puede volver a avisarse. Los fallos quedan registrados y se reintentan hasta 3 veces. Si falta configuración, el endpoint responde 503 con los nombres de las variables que faltan y no marca nada como enviado; la app sigue funcionando y Ajustes muestra las instrucciones. Prueba manual: `curl -H "Authorization: Bearer $CRON_SECRET" https://tu-app.vercel.app/api/cron/notifications`.
+
 ## Pruebas y comprobaciones
 
 | Comando | Qué hace |
@@ -158,9 +197,10 @@ Las pruebas E2E crean y borran sus propias fichas. No las ejecutes contra un pro
 - **Zona horaria**: "hoy", los vencimientos y los informes se calculan en la zona horaria del perfil (por defecto `Europe/Madrid`, configurable en Ajustes). Los campos de fecha y hora se interpretan en esa zona.
 - **Próxima acción**: `leads.next_follow_up_at` y `next_action` se derivan de la tarea pendiente más próxima (trigger). No se editan a mano; se gestionan con seguimientos.
 - **Importación**: hasta 5.000 filas por archivo, en lotes de 500. Cada lote es atómico (todo o nada); si uno falla se informa y se pueden reintentar solo esas filas. Entre lotes no hay atomicidad global.
-- **Comisiones**: nunca se calculan. "Confirmada" y "Pagada" exigen un importe confirmado.
+- **Comisiones**: se calculan solo con el porcentaje configurado por el comercial; "Confirmada" y "Pagada" exigen un importe confirmado introducido a mano.
+- **Estados retirados**: «Interesado» pasó a «En seguimiento»; «Mantiene condiciones» y «No contactar» pasaron a «Rechazado» (se guarda el estado original en `legacy_status` y la ficha avisa si el cliente pidió no ser contactado).
 - **TanStack Table** no se usa: la lista de fichas filtra, ordena y pagina en servidor (URL compartible, sin el límite de 1.000 filas de la API), lo que encaja mejor que una tabla en cliente.
 - **Registro E2E**: el alta real de usuarios no se prueba automáticamente porque enviaría emails (el SMTP integrado de Supabase solo envía al equipo). Se prueban la validación del formulario y el login, el logout y la protección de rutas.
 - **Tema oscuro**: la interfaz es solo clara.
-- **Recordatorios**: no hay notificaciones push ni emails de recordatorio. La bandeja "Para hoy" es el punto de control diario.
+- **Recordatorios**: emails opcionales al propio comercial (ver «Avisos por email»); no hay notificaciones push.
 # com_crm

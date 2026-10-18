@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyTask } from "@/features/tasks/buckets";
-import { bucketFor, conversionRate, resolvePeriod } from "./period";
+import { adjacentMonths, bucketFor, conversionRate, formatMonth, resolvePeriod } from "./period";
 
 const TZ = "Europe/Madrid";
 const NOW = new Date("2026-10-17T10:00:00Z");
@@ -40,5 +40,36 @@ describe("clasificación de seguimientos", () => {
     expect(classifyTask("2026-10-16T22:30:00Z", "pending", TZ, NOW)).toBe("today"); // 17 oct 00:30
     expect(classifyTask("2026-10-17T22:00:00Z", "pending", TZ, NOW)).toBe("upcoming");
     expect(classifyTask("2026-10-01T10:00:00Z", "completed", TZ, NOW)).toBe("completed");
+  });
+});
+
+describe("periodo mensual del panel", () => {
+  const TZ = "Europe/Madrid";
+  const NOW = new Date("2026-11-01T00:30:00Z"); // 1 de noviembre, 01:30 en Madrid
+
+  it("por defecto es el mes en curso en la zona del usuario", () => {
+    const p = resolvePeriod({}, TZ, NOW);
+    expect(p).toMatchObject({ preset: "this_month", from: "2026-11-01", to: "2026-11-01", month: "2026-11" });
+  });
+
+  it("permite consultar meses anteriores completos", () => {
+    expect(resolvePeriod({ period: "month", month: "2026-09" }, TZ, NOW)).toMatchObject({
+      preset: "month",
+      from: "2026-09-01",
+      to: "2026-09-30",
+      month: "2026-09",
+    });
+    expect(resolvePeriod({ period: "month", month: "2024-02" }, TZ, NOW).to).toBe("2024-02-29");
+  });
+
+  it("ignora meses futuros o mal formados", () => {
+    expect(resolvePeriod({ period: "month", month: "2026-12" }, TZ, NOW).preset).toBe("this_month");
+    expect(resolvePeriod({ period: "month", month: "2026-13" }, TZ, NOW).preset).toBe("this_month");
+  });
+
+  it("navega entre meses sin pasar del actual", () => {
+    expect(adjacentMonths("2026-11", "2026-11")).toEqual({ prev: "2026-10", next: null });
+    expect(adjacentMonths("2026-01", "2026-11")).toEqual({ prev: "2025-12", next: "2026-02" });
+    expect(formatMonth("2026-10")).toBe("octubre de 2026");
   });
 });

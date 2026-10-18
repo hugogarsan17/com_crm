@@ -1,14 +1,16 @@
 import { z } from "zod";
 import { COMMISSION_STATUSES } from "@/features/policies/constants";
-import { optionalLocalDate, optionalMoney, optionalText, requiredText } from "@/lib/validation/common";
+import { PRODUCT_CODE_RE } from "@/features/products/catalog";
+import { optionalLocalDate, optionalMoney, optionalText } from "@/lib/validation/common";
 
 export const policySchema = z
   .object({
     lead_id: z.uuid(),
-    product_name: requiredText(120, "Indica el producto contratado"),
+    product_code: z.string().trim().regex(PRODUCT_CODE_RE, "Selecciona un producto del catálogo"),
     contracted_at: optionalLocalDate,
     premium_amount: optionalMoney,
-    estimated_commission: optionalMoney,
+    // Valor de póliza: base del cálculo automático de comisión.
+    policy_value: optionalMoney,
     confirmed_commission: optionalMoney,
     commission_status: z.enum(COMMISSION_STATUSES, "Selecciona el estado de la comisión"),
     notes: optionalText(2000),

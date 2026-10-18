@@ -3,11 +3,13 @@ import { ChevronLeftIcon, ChevronRightIcon, PhoneIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ACTIVITY_OUTCOME_LABELS } from "@/features/activities/constants";
+import { productLabel, type Product } from "@/features/products/catalog";
 import { formatDate, formatDateTime, telHref } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { LeadListItem } from "../queries";
 import { leadFiltersToSearch, type LeadFilters } from "../search-params";
-import { LeadStatusBadge, PriorityBadge } from "./badges";
+import { FuneralInsuranceBadge, LeadStatusBadge, LegacyStatusBadge, PriorityBadge } from "./badges";
+
 
 function NextAction({ lead, tz, now }: { lead: LeadListItem; tz: string; now: number }) {
   if (!lead.next_follow_up_at) {
@@ -27,10 +29,12 @@ function NextAction({ lead, tz, now }: { lead: LeadListItem; tz: string; now: nu
 
 export function LeadsList({
   leads,
+  products,
   timezone,
   now,
 }: {
   leads: LeadListItem[];
+  products: Product[];
   timezone: string;
   now: number;
 }) {
@@ -46,14 +50,17 @@ export function LeadsList({
               </Link>
               <LeadStatusBadge status={lead.status} />
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              {lead.product_to_offer ? <span>{lead.product_to_offer}</span> : null}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              {lead.customer_reference ? <span>Nº póliza {lead.customer_reference}</span> : null}
+              {lead.product_code ? <span>{productLabel(products, lead.product_code)}</span> : null}
               {lead.last_outcome ? <span>Último: {ACTIVITY_OUTCOME_LABELS[lead.last_outcome]}</span> : null}
+              <FuneralInsuranceBadge value={lead.has_funeral_insurance} />
               <PriorityBadge priority={lead.priority} />
+              <LegacyStatusBadge legacyStatus={lead.legacy_status} />
             </div>
             <div className="mt-2 flex items-end justify-between gap-2 text-sm">
               <NextAction lead={lead} tz={timezone} now={now} />
-              {lead.phone && lead.status !== "do_not_contact" ? (
+              {lead.phone && lead.legacy_status !== "do_not_contact" ? (
                 <Button asChild size="icon-lg" variant="outline" aria-label={`Llamar a ${lead.full_name}`}>
                   <a href={telHref(lead.phone)}>
                     <PhoneIcon />
@@ -73,6 +80,7 @@ export function LeadsList({
               <TableHead>Cliente</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Producto</TableHead>
+              <TableHead>Decesos</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Último resultado</TableHead>
               <TableHead>Próxima acción</TableHead>
@@ -86,11 +94,12 @@ export function LeadsList({
                   <Link href={`/leads/${lead.id}`} className="block truncate font-medium underline-offset-4 hover:underline">
                     {lead.full_name}
                   </Link>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {lead.customer_reference ? (
-                      <span className="truncate text-xs text-muted-foreground">Ref. {lead.customer_reference}</span>
+                      <span className="truncate text-xs text-muted-foreground">Nº póliza {lead.customer_reference}</span>
                     ) : null}
                     <PriorityBadge priority={lead.priority} />
+                    <LegacyStatusBadge legacyStatus={lead.legacy_status} />
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
@@ -102,7 +111,12 @@ export function LeadsList({
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell>{lead.product_to_offer ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell>
+                  {lead.product_code ? productLabel(products, lead.product_code) : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell>
+                  <FuneralInsuranceBadge value={lead.has_funeral_insurance} />
+                </TableCell>
                 <TableCell>
                   <LeadStatusBadge status={lead.status} />
                 </TableCell>

@@ -5,15 +5,30 @@ import { PGlite } from "@electric-sql/pglite";
 const root = path.resolve(__dirname, "../..");
 const migrationsDir = path.join(root, "supabase/migrations");
 
-/** Crea una base de datos en memoria con el stub de Supabase y todas las migraciones. */
-export async function createTestDatabase() {
+function migrationFiles() {
+  return readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+}
+
+/**
+ * Crea una base de datos en memoria con el stub de Supabase y las migraciones.
+ * Con `before`, solo aplica las migraciones anteriores a ese prefijo (para probar
+ * la transformación de datos existentes con applyMigrationsFrom).
+ */
+export async function createTestDatabase(options: { before?: string } = {}) {
   const db = new PGlite();
   await db.exec(readFileSync(path.join(__dirname, "supabase-stub.sql"), "utf8"));
-  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
-  for (const file of files) {
+  for (const file of migrationFiles()) {
+    if (options.before && file >= options.before) break;
     await db.exec(readFileSync(path.join(migrationsDir, file), "utf8"));
   }
   return db;
+}
+
+/** Aplica las migraciones a partir del prefijo indicado (incluido). */
+export async function applyMigrationsFrom(db: PGlite, from: string) {
+  for (const file of migrationFiles()) {
+    if (file >= from) await db.exec(readFileSync(path.join(migrationsDir, file), "utf8"));
+  }
 }
 
 export type TestDb = Awaited<ReturnType<typeof createTestDatabase>>;

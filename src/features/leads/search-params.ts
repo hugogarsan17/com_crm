@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidLocalDate } from "@/lib/dates";
-import { LEAD_PRIORITIES, LEAD_SORTS, LEAD_STATUSES, type LeadSort } from "./constants";
+import { PRODUCT_CODE_RE } from "@/features/products/catalog";
+import { FUNERAL_INSURANCE_OPTIONS, LEAD_PRIORITIES, LEAD_SORTS, LEAD_STATUSES, type LeadSort } from "./constants";
 
 const optionalString = z
   .string()
@@ -21,7 +22,9 @@ export const leadFiltersSchema = z.object({
   q: optionalString,
   status: z.union([z.enum(LEAD_STATUSES), z.literal("open"), z.literal("closed")]).optional().catch(undefined),
   priority: z.enum(LEAD_PRIORITIES).optional().catch(undefined),
-  product: optionalString,
+  // Código del catálogo de productos.
+  product: z.string().regex(PRODUCT_CODE_RE).optional().catch(undefined),
+  funeral: z.enum(FUNERAL_INSURANCE_OPTIONS).optional().catch(undefined),
   from: optionalDate,
   to: optionalDate,
   sort: z

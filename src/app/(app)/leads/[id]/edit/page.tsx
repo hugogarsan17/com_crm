@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { LeadForm } from "@/features/leads/components/lead-form";
 import { LeadFormSkeleton } from "@/features/leads/components/lead-form-skeleton";
 import { leadToFormValues } from "@/features/leads/form-values";
-import { getLeadForEdit, getProductOptions } from "@/features/leads/queries";
+import { getLeadForEdit } from "@/features/leads/queries";
+import { getProducts } from "@/features/products/queries";
 
 export const metadata: Metadata = { title: "Editar ficha" };
 
@@ -18,15 +19,8 @@ async function EditLeadHeader({ params }: { params: Params }) {
 }
 
 async function EditLeadForm({ params }: { params: Params }) {
-  const [{ user, lead }, productOptions] = await Promise.all([loadLead(params), getProductOptions()]);
-  return (
-    <LeadForm
-      mode="edit"
-      leadId={lead.id}
-      defaultValues={leadToFormValues(lead, user.timezone)}
-      productOptions={productOptions}
-    />
-  );
+  const [{ user, lead }, products] = await Promise.all([loadLead(params), getProducts()]);
+  return <LeadForm mode="edit" leadId={lead.id} defaultValues={leadToFormValues(lead, user.timezone)} products={products} />;
 }
 
 export default function EditLeadPage({ params }: PageProps<"/leads/[id]/edit">) {

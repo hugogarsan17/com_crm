@@ -5,7 +5,7 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { TaskView } from "./constants";
 
 const TASK_WITH_LEAD =
-  "id, title, description, due_at, status, completed_at, lead_id, lead:leads!inner(id, full_name, phone, product_to_offer, status, last_outcome, archived_at)" as const;
+  "id, title, description, due_at, status, completed_at, lead_id, lead:leads!inner(id, full_name, phone, product_code, status, legacy_status, last_outcome, archived_at)" as const;
 
 function pendingTasks(supabase: ServerSupabaseClient, userId: string) {
   return supabase
@@ -83,7 +83,7 @@ export async function getTodayQueue() {
     pendingTasks(supabase, user.id).lt("due_at", end.toISOString()).order("due_at").limit(50),
     supabase
       .from("leads")
-      .select("id, full_name, phone, product_to_offer, status, priority, received_at, last_outcome")
+      .select("id, full_name, phone, postal_code, locality, has_funeral_insurance, status, priority, received_at, last_outcome")
       .eq("user_id", user.id)
       .eq("status", "pending_contact")
       .is("archived_at", null)
@@ -94,4 +94,25 @@ export async function getTodayQueue() {
   ]);
   if (tasks.error || firstContact.error) throw new Error("No se pudo cargar la bandeja de hoy.");
   return { tasks: tasks.data ?? [], firstContact: firstContact.data ?? [], timezone: user.timezone };
+}
+
+const CALENDAR_LIMIT = 1000;
+
+/**
+ * Tareas (de cualquier estado) con vencimiento en [startIso, endIso), para el calendario.
+ * Usa la misma tabla y relación que la bandeja «Para hoy».
+ */
+export async function listTasksInRange(startIso: string, endIso: string) {
+  const { user, supabase } = await requireUser();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(TASK_WITH_LEAD)
+    .eq("user_id", user.id)
+    .is("lead.archived_at", null)
+    .gte("due_at", startIso)
+    .lt("due_at", endIso)
+    .order("due_at")
+    .limit(CALENDAR_LIMIT);
+  if (error) throw new Error("No se pudieron cargar las tareas del calendario.");
+  return { tasks: data ?? [], timezone: user.timezone, truncated: (data?.length ?? 0) >= CALENDAR_LIMIT };
 }

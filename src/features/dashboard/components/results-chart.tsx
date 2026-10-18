@@ -9,7 +9,6 @@ const SERIES = [
   { key: "contacted", label: "Clientes contactados", color: "#2a78d6" },
   { key: "contracted", label: "Pólizas contratadas", color: "#eb6834" },
   { key: "rejected", label: "Rechazos", color: "#1baf7a" },
-  { key: "keeps_conditions", label: "Mantienen condiciones", color: "#eda100" },
 ] as const;
 
 function bucketLabel(bucket: string, granularity: Bucket) {

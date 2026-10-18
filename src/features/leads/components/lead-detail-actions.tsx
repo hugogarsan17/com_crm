@@ -7,7 +7,6 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   BadgeCheckIcon,
-  BanIcon,
   CalendarPlusIcon,
   MailIcon,
   MessageCircleIcon,
@@ -16,7 +15,6 @@ import {
   PencilIcon,
   PhoneIcon,
   RotateCcwIcon,
-  ScaleIcon,
   Trash2Icon,
   ThumbsDownIcon,
 } from "lucide-react";
@@ -43,7 +41,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { callAction } from "@/components/form/fields";
 import { LogActivityDialog } from "@/features/activities/components/log-activity-dialog";
+import type { CommissionRule } from "@/features/commissions/calc";
 import { PolicyDialog, policyDefaults } from "@/features/policies/components/policy-dialog";
+import type { Product } from "@/features/products/catalog";
 import { TaskDialog } from "@/features/tasks/components/task-dialog";
 import type { ActionResult } from "@/lib/action-result";
 import { telHref, whatsappHref } from "@/lib/format";
@@ -56,31 +56,28 @@ type Lead = {
   status: LeadStatus;
   phone: string | null;
   email: string | null;
-  product_to_offer: string | null;
   archived_at: string | null;
+  legacy_status: string | null;
+  product_code: string | null;
 };
 
-type CloseStatus = Extract<LeadStatus, "rejected" | "keeps_current_conditions" | "do_not_contact">;
+type CloseStatus = Extract<LeadStatus, "rejected">;
 
 const CLOSE_COPY: Record<CloseStatus, { title: string; description: string }> = {
   rejected: { title: "Marcar como rechazada", description: "El cliente ha rechazado la oferta. Puedes indicar el motivo." },
-  keeps_current_conditions: {
-    title: "El cliente mantiene sus condiciones",
-    description: "Se cierra la gestión. Si quieres revisarlo más adelante, programa un seguimiento después.",
-  },
-  do_not_contact: {
-    title: "Marcar como «No contactar»",
-    description: "Se cancelarán sus seguimientos pendientes y no podrás programar nuevos mientras tenga este estado.",
-  },
 };
 
 export function LeadDetailActions({
   lead,
+  products,
+  rules,
   nowLocal,
   tomorrowLocal,
   today,
 }: {
   lead: Lead;
+  products: Product[];
+  rules: CommissionRule[];
   nowLocal: string;
   tomorrowLocal: string;
   today: string;
@@ -95,7 +92,8 @@ export function LeadDetailActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteText, setDeleteText] = useState("");
 
-  const doNotContact = lead.status === "do_not_contact";
+  // Fichas que estaban en el estado retirado «No contactar»: no se ofrecen atajos de contacto.
+  const doNotContact = lead.legacy_status === "do_not_contact";
 
   function run(fn: () => Promise<ActionResult>, after?: () => void) {
     startTransition(async () => {
@@ -139,7 +137,7 @@ export function LeadDetailActions({
         <Button size="lg" onClick={() => setLogOpen(true)}>
           <MessageSquarePlusIcon aria-hidden /> Registrar contacto
         </Button>
-        <Button size="lg" variant="secondary" onClick={() => setTaskOpen(true)} disabled={doNotContact} title={doNotContact ? "No disponible para «No contactar»" : undefined}>
+        <Button size="lg" variant="secondary" onClick={() => setTaskOpen(true)}>
           <CalendarPlusIcon aria-hidden /> Seguimiento
         </Button>
         <Button size="lg" variant="secondary" onClick={() => setPolicyOpen(true)}>
@@ -163,12 +161,6 @@ export function LeadDetailActions({
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setClosing("rejected")} disabled={lead.status === "rejected"}>
               <ThumbsDownIcon /> Rechazada
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setClosing("keeps_current_conditions")} disabled={lead.status === "keeps_current_conditions"}>
-              <ScaleIcon /> Mantiene condiciones
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setClosing("do_not_contact")} disabled={doNotContact}>
-              <BanIcon /> No contactar
             </DropdownMenuItem>
             {isClosedStatus(lead.status) ? (
               <DropdownMenuItem onSelect={() => run(() => setLeadStatus({ lead_id: lead.id, status: "follow_up", closed_reason: "" }))}>
@@ -209,7 +201,9 @@ export function LeadDetailActions({
           open={policyOpen}
           onOpenChange={setPolicyOpen}
           policyId={null}
-          defaultValues={policyDefaults(lead.id, today, lead.product_to_offer)}
+          defaultValues={policyDefaults(lead.id, today, undefined, lead.product_code)}
+          products={products}
+          rules={rules}
         />
       ) : null}
 
@@ -235,7 +229,6 @@ export function LeadDetailActions({
             <AlertDialogFooter>
               <AlertDialogCancel disabled={pending}>Volver</AlertDialogCancel>
               <Button
-                variant={closing === "do_not_contact" ? "destructive" : "default"}
                 disabled={pending}
                 onClick={() =>
                   run(

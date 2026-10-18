@@ -6,6 +6,7 @@ import { databaseErrorMessage, fail, ok, validationFailure, type ActionResult } 
 import { getActionContext, UNAUTHENTICATED_MESSAGE } from "@/lib/auth";
 import { localDateTimeToIso } from "@/lib/dates";
 import { leadSchema, setLeadStatusSchema, type LeadFormInput, type SetLeadStatusInput } from "@/lib/validation/lead";
+import { funeralInsuranceToDb } from "./constants";
 
 const leadIdSchema = z.uuid();
 
@@ -14,11 +15,11 @@ function toLeadRow(data: z.output<typeof leadSchema>, tz: string) {
     full_name: data.full_name,
     phone: data.phone,
     email: data.email,
+    postal_code: data.postal_code,
     locality: data.locality,
     customer_reference: data.customer_reference,
-    current_policies: data.current_policies,
-    product_to_offer: data.product_to_offer,
-    source: data.source,
+    has_funeral_insurance: funeralInsuranceToDb(data.has_funeral_insurance),
+    product_code: data.product_code,
     status: data.status,
     priority: data.priority,
     notes: data.notes,
@@ -45,7 +46,7 @@ export async function createLead(input: LeadFormInput): Promise<ActionResult<{ i
     const { error: taskError } = await supabase.from("tasks").insert({
       user_id: user.id,
       lead_id: lead.id,
-      title: parsed.data.follow_up_title ?? "Primer contacto",
+      title: "Primer contacto",
       due_at: localDateTimeToIso(parsed.data.follow_up_due_at, user.timezone),
     });
     if (taskError) {

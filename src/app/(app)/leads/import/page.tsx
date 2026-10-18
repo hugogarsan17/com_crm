@@ -3,13 +3,14 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { ImportWizard } from "@/features/import/components/import-wizard";
+import { getProducts } from "@/features/products/queries";
 import { requireUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Importar CSV" };
 
 async function ImportWizardSection() {
-  const { user } = await requireUser();
-  return <ImportWizard timezone={user.timezone} />;
+  const [{ user }, products] = await Promise.all([requireUser(), getProducts()]);
+  return <ImportWizard timezone={user.timezone} products={products} />;
 }
 
 function ImportWizardSkeleton() {

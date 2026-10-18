@@ -81,12 +81,25 @@ describe.skipIf(!configured)("RLS en Supabase real", () => {
     expect(rpc.error).not.toBeNull();
   });
 
+  it("reglas de comisión, preferencias y registro de avisos están aislados", async () => {
+    const spoofRule = await b.client.from("commission_rules").insert({ user_id: a.userId, rate_percent: 50 });
+    expect(spoofRule.error).not.toBeNull();
+    const spoofPrefs = await b.client.from("notification_preferences").insert({ user_id: a.userId, email_enabled: true });
+    expect(spoofPrefs.error).not.toBeNull();
+    const writeLog = await b.client
+      .from("notification_log")
+      .insert({ user_id: b.userId, task_id: "00000000-0000-0000-0000-000000000000", kind: "overdue", due_at: new Date().toISOString() });
+    expect(writeLog.error).not.toBeNull();
+    const readOthers = await b.client.from("commission_rules").select("id").eq("user_id", a.userId);
+    expect(readOthers.data ?? []).toEqual([]);
+  });
+
   it("un cliente anónimo no accede a nada", async () => {
     const anon = createClient<Database>(url!, key!, { auth: { persistSession: false } });
     const leads = await anon.from("leads").select("id").limit(1);
     expect(leads.error ?? leads.data).toBeTruthy();
     expect(leads.data ?? []).toEqual([]);
-    const rpc = await anon.rpc("get_product_options");
+    const rpc = await anon.rpc("get_dashboard_summary", { p_from: "2026-01-01", p_to: "2026-01-31" });
     expect(rpc.error).not.toBeNull();
   });
 });

@@ -4,13 +4,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { LeadForm } from "@/features/leads/components/lead-form";
 import { LeadFormSkeleton } from "@/features/leads/components/lead-form-skeleton";
 import { emptyLeadFormValues } from "@/features/leads/form-values";
-import { getProductOptions } from "@/features/leads/queries";
+import { getProducts } from "@/features/products/queries";
 
 export const metadata: Metadata = { title: "Nueva ficha" };
 
 async function NewLeadForm() {
-  const productOptions = await getProductOptions();
-  return <LeadForm mode="create" defaultValues={emptyLeadFormValues()} productOptions={productOptions} />;
+  const products = await getProducts();
+  return <LeadForm mode="create" defaultValues={emptyLeadFormValues()} products={products} />;
 }
 
 export default function NewLeadPage() {

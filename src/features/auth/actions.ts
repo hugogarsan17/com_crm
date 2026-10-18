@@ -1,15 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { createClient as createIsolatedClient } from "@supabase/supabase-js";
 import { fail, ok, validationFailure, type ActionResult } from "@/lib/action-result";
+import { getActionContext, UNAUTHENTICATED_MESSAGE } from "@/lib/auth";
+import { getSupabaseEnv } from "@/lib/env";
 import { safeNextPath } from "@/lib/redirect";
 import { getSiteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  type ChangePasswordInput,
   type ForgotPasswordInput,
   type LoginInput,
   type RegisterInput,
@@ -90,6 +95,49 @@ export async function updatePassword(input: ResetPasswordInput): Promise<ActionR
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return fail(authErrorMessage(error));
   redirect("/dashboard?password=updated");
+}
+
+/**
+ * Cambio de contraseña desde Ajustes con Supabase Auth.
+ * 1. Comprueba la contraseña actual con un cliente aislado (sin cookies), cuya sesión
+ *    temporal se cierra después; la sesión del usuario no se toca.
+ * 2. Actualiza la contraseña con la sesión del usuario (updateUser). Se envía también
+ *    current_password por si el proyecto exige la contraseña actual en Supabase.
+ * Las contraseñas no se guardan ni se registran en ningún log.
+ */
+export async function changePassword(input: ChangePasswordInput): Promise<ActionResult> {
+  const parsed = changePasswordSchema.safeParse(input);
+  if (!parsed.success) return validationFailure(parsed.error);
+  const ctx = await getActionContext();
+  if (!ctx) return fail(UNAUTHENTICATED_MESSAGE);
+  if (!ctx.user.email) return fail("Tu cuenta no tiene email; usa «He olvidado mi contraseña».");
+
+  const { url, anonKey } = getSupabaseEnv();
+  const verifier = createIsolatedClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  const { error: verifyError } = await verifier.auth.signInWithPassword({
+    email: ctx.user.email,
+    password: parsed.data.current_password,
+  });
+  if (verifyError) {
+    if (verifyError.code === "invalid_credentials") {
+      return fail("Revisa los campos marcados.", { current_password: ["La contraseña actual no es correcta"] });
+    }
+    return fail(authErrorMessage(verifyError));
+  }
+  // Cierra solo la sesión temporal de verificación.
+  await verifier.auth.signOut({ scope: "local" });
+
+  const { error } = await ctx.supabase.auth.updateUser({
+    password: parsed.data.password,
+    current_password: parsed.data.current_password,
+  });
+  if (error) {
+    if (error.code === "same_password") {
+      return fail("Revisa los campos marcados.", { password: [authErrorMessage(error)] });
+    }
+    return fail(authErrorMessage(error), undefined, error.code);
+  }
+  return ok(undefined, "Contraseña cambiada correctamente.");
 }
 
 export async function signOut() {

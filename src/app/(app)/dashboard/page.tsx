@@ -5,13 +5,14 @@ import {
   AlertTriangleIcon,
   BadgeCheckIcon,
   CalendarClockIcon,
+  CalendarDaysIcon,
   CheckCircle2Icon,
   CoinsIcon,
+  FilePenIcon,
   InboxIcon,
   PartyPopperIcon,
   PhoneIcon,
-  ScaleIcon,
-  SparklesIcon,
+  ReceiptEuroIcon,
   ThumbsDownIcon,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,12 +23,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StatTile } from "@/components/shared/stat-tile";
 import { ResultsChart } from "@/features/dashboard/components/results-chart";
 import { LeadStatusBadge, PriorityBadge } from "@/features/leads/components/badges";
-import { PeriodFilter } from "@/features/reports/components/period-filter";
-import { resolvePeriod } from "@/features/reports/period";
+import { MonthNavigator, PeriodFilter } from "@/features/reports/components/period-filter";
+import { formatMonth, resolvePeriod } from "@/features/reports/period";
 import { getDashboardSummary, getResultsSeries } from "@/features/reports/queries";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { getTodayQueue } from "@/features/tasks/queries";
 import { requireUser } from "@/lib/auth";
+import { todayInTimeZone } from "@/lib/dates";
 import { formatCurrency, formatDate, formatNumber, telHref } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Para hoy" };
@@ -36,11 +38,14 @@ type SearchParams = PageProps<"/dashboard">["searchParams"];
 
 // Memoizadas por petición: todas las secciones reciben la misma promesa de searchParams,
 // así que comparten una única lectura de la sesión y una única consulta a Supabase.
+// Por defecto el periodo es el mes en curso: al empezar un mes nuevo las métricas
+// "se reinician" solo porque cambia el rango consultado; no se borra ningún dato.
 const loadPeriod = cache(async (searchParams: SearchParams) => {
   const sp = await searchParams;
   const { user } = await requireUser();
   const str = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
-  return resolvePeriod({ period: str(sp.period), from: str(sp.from), to: str(sp.to) }, user.timezone);
+  const period = resolvePeriod({ period: str(sp.period), from: str(sp.from), to: str(sp.to), month: str(sp.month) }, user.timezone);
+  return { ...period, currentMonth: todayInTimeZone(user.timezone).slice(0, 7) };
 });
 
 const loadSummary = cache(async (searchParams: SearchParams) => getDashboardSummary(await loadPeriod(searchParams)));
@@ -104,7 +109,12 @@ async function TodayTiles({ searchParams }: { searchParams: SearchParams }) {
       />
       <StatTile label="Seguimientos de hoy" value={formatNumber(summary.follow_ups_today)} icon={CalendarClockIcon} href="/tasks" />
       <StatTile label="Pendientes de contactar" value={formatNumber(summary.pending_contact)} icon={InboxIcon} href="/leads?status=pending_contact" />
-      <StatTile label="Interesados" value={formatNumber(summary.interested)} icon={SparklesIcon} href="/leads?status=interested" />
+      <StatTile
+        label="Propuestas en curso"
+        value={formatNumber(summary.proposals)}
+        icon={FilePenIcon}
+        href="/leads?status=proposal_in_progress"
+      />
     </>
   );
 }
@@ -155,7 +165,7 @@ async function FirstContactList({ searchParams }: { searchParams: SearchParams }
                 {lead.full_name}
               </Link>
               <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                {lead.product_to_offer ? <span>{lead.product_to_offer}</span> : null}
+                {lead.locality ? <span>{lead.locality}</span> : null}
                 <span>Recibida {formatDate(lead.received_at, queue.timezone)}</span>
                 <PriorityBadge priority={lead.priority} />
               </p>
@@ -181,9 +191,34 @@ async function FirstContactList({ searchParams }: { searchParams: SearchParams }
   );
 }
 
+async function PeriodTitle({ searchParams }: { searchParams: SearchParams }) {
+  const period = await loadPeriod(searchParams);
+  return period.month ? (
+    <>
+      Resultados de <span className="capitalize">{formatMonth(period.month)}</span>
+    </>
+  ) : (
+    <>
+      Resultados del {formatDate(period.from)} al {formatDate(period.to)}
+    </>
+  );
+}
+
 async function PeriodControls({ searchParams }: { searchParams: SearchParams }) {
   const period = await loadPeriod(searchParams);
-  return <PeriodFilter preset={period.preset} from={period.from} to={period.to} />;
+  return (
+    <div className="flex flex-col gap-2 sm:items-end">
+      {period.month ? <MonthNavigator month={period.month} currentMonth={period.currentMonth} /> : null}
+      <PeriodFilter
+        key={`${period.preset}-${period.month ?? period.from}`}
+        preset={period.preset}
+        from={period.from}
+        to={period.to}
+        month={period.month}
+        currentMonth={period.currentMonth}
+      />
+    </div>
+  );
 }
 
 async function PeriodTiles({ searchParams }: { searchParams: SearchParams }) {
@@ -192,9 +227,19 @@ async function PeriodTiles({ searchParams }: { searchParams: SearchParams }) {
     <>
       <StatTile label="Pólizas contratadas" value={formatNumber(summary.policies_contracted)} icon={BadgeCheckIcon} />
       <StatTile label="Rechazos" value={formatNumber(summary.rejected)} icon={ThumbsDownIcon} />
-      <StatTile label="Mantienen condiciones" value={formatNumber(summary.keeps_conditions)} icon={ScaleIcon} />
       <StatTile label="Fichas recibidas" value={formatNumber(summary.leads_received)} icon={InboxIcon} />
-      <StatTile label="Comisión estimada" value={formatCurrency(summary.estimated_commission)} icon={CoinsIcon} />
+      <StatTile label="Valor de pólizas" value={formatCurrency(summary.policy_value_total)} icon={ReceiptEuroIcon} />
+      <StatTile
+        label="Comisión calculada"
+        value={formatCurrency(summary.calculated_commission)}
+        hint={
+          summary.policies_without_commission
+            ? `${formatNumber(summary.policies_without_commission)} ${summary.policies_without_commission === 1 ? "póliza" : "pólizas"} sin calcular (falta valor o regla)`
+            : undefined
+        }
+        tone={summary.policies_without_commission ? "warning" : "default"}
+        icon={CoinsIcon}
+      />
       <StatTile
         label="Comisión confirmada"
         value={formatCurrency(summary.confirmed_commission)}
@@ -240,13 +285,18 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
         <PasswordNotice searchParams={searchParams} />
       </Suspense>
 
-      <section aria-labelledby="today-title" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <h2 id="today-title" className="sr-only">
-          Resumen de hoy
-        </h2>
-        <Suspense fallback={<TilesSkeleton count={4} />}>
-          <TodayTiles searchParams={searchParams} />
-        </Suspense>
+      <section aria-labelledby="today-title" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <h2 id="today-title" className="text-lg font-semibold">
+            Pendientes ahora
+          </h2>
+          <p className="text-sm text-muted-foreground">Estado actual, sin importar el mes: lo vencido de meses anteriores sigue aquí.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Suspense fallback={<TilesSkeleton count={4} />}>
+            <TodayTiles searchParams={searchParams} />
+          </Suspense>
+        </div>
       </section>
 
       <Suspense fallback={null}>
@@ -259,7 +309,13 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
             <CardTitle>
               <h2>Para hoy</h2>
             </CardTitle>
-            <CardDescription>Seguimientos vencidos y de hoy.</CardDescription>
+            <CardDescription>
+              Seguimientos vencidos y de hoy, también los creados desde el{" "}
+              <Link href="/calendar" className="inline-flex items-center gap-1 font-medium underline underline-offset-4">
+                <CalendarDaysIcon className="size-3.5" aria-hidden /> calendario
+              </Link>
+              .
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Suspense fallback={<ListSkeleton rows={2} />}>
@@ -285,9 +341,14 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
 
       <section aria-labelledby="results-title" className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <h2 id="results-title" className="text-lg font-semibold">
-            Resultados del periodo
-          </h2>
+          <div>
+            <h2 id="results-title" className="text-lg font-semibold">
+              <Suspense fallback="Resultados del mes">
+                <PeriodTitle searchParams={searchParams} />
+              </Suspense>
+            </h2>
+            <p className="text-sm text-muted-foreground">Métricas del periodo seleccionado (por defecto, el mes en curso).</p>
+          </div>
           <Suspense fallback={<Skeleton className="h-[52px] w-44" />}>
             <PeriodControls searchParams={searchParams} />
           </Suspense>

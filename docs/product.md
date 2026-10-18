@@ -17,16 +17,19 @@ Funciones MVP
 - CRUD y archivo de leads, búsqueda y filtros.
 - Registro cronológico de llamadas, WhatsApp, SMS, email, visita u otro contacto.
 - Tareas de seguimiento pendientes, completadas o canceladas.
-- Registro manual de pólizas y comisiones.
+- Registro de pólizas con producto del catálogo, valor de póliza y comisión calculada según la regla configurada; comisión confirmada/pagada manual.
+- Calendario de seguimientos (día, semana, mes) y avisos opcionales por email al comercial.
+- Cambio de contraseña desde Ajustes.
 - Importación CSV con previsualización, validación y aviso de duplicados.
 - Informes básicos por fechas y producto, exportables a CSV.
 Estados de lead
-pending_contact, no_answer, follow_up, interested, proposal_in_progress, policy_contracted, rejected, keeps_current_conditions, do_not_contact.
-“Rechazado” y “mantiene las condiciones actuales” son resultados distintos. Las fichas abiertas deben tener próxima acción/fecha o indicación explícita de que no requieren seguimiento.
+pending_contact, no_answer, follow_up, proposal_in_progress, policy_contracted, rejected.
+(Octubre 2026: se retiraron “Interesado”, “Mantiene condiciones” y “No contactar”; ver docs/database.md. Los resultados de contacto “Interesado”, “Mantiene sus condiciones” y “No quiere que le contacten” siguen existiendo como resultado de una actividad.) Las fichas abiertas deben tener próxima acción/fecha o indicación explícita de que no requieren seguimiento.
 Fuera del MVP
 - Envío automático de WhatsApp, SMS o email.
 - Integración con sistemas internos de aseguradoras.
-- Cálculo automático de comisiones sin una regla proporcionada.
+- Cálculo automático de comisiones sin una regla proporcionada: la comisión solo se calcula con el porcentaje que cada comercial configura en Ajustes.
+- Envío de mensajes a clientes. Los avisos por email van únicamente al propio comercial.
 - Grabación o transcripción de llamadas.
 - Gestión avanzada de equipos, supervisores y reparto automático.
 Privacidad

@@ -261,22 +261,22 @@ describe("triggers", () => {
     expect((await next()).rows[0].next_action).toBeNull();
   });
 
-  it("'No contactar' cancela seguimientos pendientes e impide crear nuevos", async () => {
-    const leadId = await insertLead(alice);
+  it("no admite los estados retirados", async () => {
     await asUser(db, alice, async () => {
-      await db.query("insert into public.tasks (lead_id, title, due_at) values ($1, 'Llamar', now())", [leadId]);
-      await db.query("update public.leads set status = 'do_not_contact' where id = $1", [leadId]);
-      const tasks = await db.query<{ status: string }>("select status from public.tasks where lead_id = $1", [leadId]);
-      expect(tasks.rows.map((t) => t.status)).toEqual(["cancelled"]);
-      await expect(
-        db.query("insert into public.tasks (lead_id, title, due_at) values ($1, 'Otra', now())", [leadId]),
-      ).rejects.toThrow(/No contactar/);
+      for (const status of ["interested", "keeps_current_conditions", "do_not_contact"]) {
+        await expect(db.query("insert into public.leads (full_name, status) values ('X', $1)", [status])).rejects.toThrow(
+          /invalid input value for enum/,
+        );
+      }
     });
-    const lead = await db.query<{ next_follow_up_at: Date | null }>(
-      "select next_follow_up_at from public.leads where id = $1",
-      [leadId],
-    );
-    expect(lead.rows[0].next_follow_up_at).toBeNull();
+  });
+
+  it("cerrar una ficha ya cerrada no cambia su fecha de cierre", async () => {
+    const leadId = await insertLead(alice, { status: "rejected" });
+    await db.query("update public.leads set closed_at = '2026-01-10T10:00:00Z' where id = $1", [leadId]);
+    await asUser(db, alice, () => db.query("update public.leads set status = 'policy_contracted' where id = $1", [leadId]));
+    const res = await db.query<{ closed_at: Date }>("select closed_at from public.leads where id = $1", [leadId]);
+    expect(res.rows[0].closed_at.toISOString()).toBe("2026-01-10T10:00:00.000Z");
   });
 });
 
@@ -286,7 +286,7 @@ describe("RPC", () => {
     await asUser(db, alice, async () => {
       const res = await db.query<{ r: { activity_id: string; task_id: string } }>(
         `select public.log_activity($1, 'call', 'interested', now(), 'Le interesa hogar',
-                'interested', null, 'Enviar presupuesto', now() + interval '2 days') as r`,
+                'follow_up', null, 'Enviar presupuesto', now() + interval '2 days') as r`,
         [leadId],
       );
       expect(res.rows[0].r.activity_id).toBeTruthy();
@@ -296,18 +296,20 @@ describe("RPC", () => {
       "select status, last_outcome, next_action from public.leads where id = $1",
       [leadId],
     );
-    expect(lead.rows[0]).toEqual({ status: "interested", last_outcome: "interested", next_action: "Enviar presupuesto" });
+    expect(lead.rows[0]).toEqual({ status: "follow_up", last_outcome: "interested", next_action: "Enviar presupuesto" });
 
-    // Si falla una parte (seguimiento para 'No contactar'), no queda nada a medias.
+    // Si falla una parte (título de seguimiento demasiado largo), no queda nada a medias.
     await asUser(db, alice, async () => {
       await expect(
         db.query(
-          `select public.log_activity($1, 'call', 'do_not_contact', now(), null,
-                  'do_not_contact', null, 'x', now() + interval '1 day')`,
+          `select public.log_activity($1, 'call', 'rejected', now(), null,
+                  'rejected', null, repeat('x', 300), now() + interval '1 day')`,
           [leadId],
         ),
-      ).rejects.toThrow(/No contactar/);
+      ).rejects.toThrow(/tasks_title_length/);
     });
+    const unchanged = await db.query<{ status: string }>("select status::text from public.leads where id = $1", [leadId]);
+    expect(unchanged.rows[0].status).toBe("follow_up");
     const count = await db.query<{ n: number }>(
       "select count(*)::int as n from public.activities where lead_id = $1",
       [leadId],
@@ -332,7 +334,16 @@ describe("RPC", () => {
     await asUser(db, bob, async () => {
       const ok = await db.query<{ n: number }>("select public.import_leads($1::jsonb) as n", [
         JSON.stringify([
-          { full_name: "Uno", phone: "611000001", current_policies: ["Auto", "Hogar"], priority: "high" },
+          {
+            full_name: "Uno",
+            phone: "611000001",
+            priority: "high",
+            postal_code: "28001",
+            locality: "Madrid",
+            customer_reference: "POL-1",
+            has_funeral_insurance: false,
+            product_code: "decesos",
+          },
           { full_name: "Dos", email: "dos@example.test" },
         ]),
       ]);
@@ -349,31 +360,43 @@ describe("RPC", () => {
       [bob],
     );
     expect(after.rows[0].n).toBe(before.rows[0].n + 2);
-    const imported = await db.query<{ current_policies: string[]; priority: string }>(
-      "select current_policies, priority from public.leads where user_id = $1 and full_name = 'Uno'",
+    const imported = await db.query(
+      `select priority, postal_code, locality, customer_reference, has_funeral_insurance, product_code
+         from public.leads where user_id = $1 and full_name in ('Uno', 'Dos') order by full_name desc`,
       [bob],
     );
-    expect(imported.rows[0]).toEqual({ current_policies: ["Auto", "Hogar"], priority: "high" });
+    expect(imported.rows).toEqual([
+      { priority: "high", postal_code: "28001", locality: "Madrid", customer_reference: "POL-1", has_funeral_insurance: false, product_code: "decesos" },
+      // Un dato vacío queda "sin indicar" (null), nunca "no".
+      { priority: "normal", postal_code: null, locality: null, customer_reference: null, has_funeral_insurance: null, product_code: null },
+    ]);
+    await asUser(db, bob, async () => {
+      await expect(
+        db.query("select public.import_leads($1::jsonb)", [JSON.stringify([{ full_name: "Mal", product_code: "inventado" }])]),
+      ).rejects.toThrow(/foreign key/);
+    });
   });
 
-  it("get_report y get_dashboard_summary resumen comisiones sin calcularlas", async () => {
+  it("get_report y get_dashboard_summary resumen valor de póliza y comisiones calculadas", async () => {
     const carol = await createUser(db, "carol@example.test", "Carol");
-    const leadId = await insertLead(carol, { product_to_offer: "Hogar" });
+    const leadId = await insertLead(carol, { product_code: "hogar" });
     await asUser(db, carol, async () => {
+      await db.query("insert into public.commission_rules (product_code, rate_percent) values ('hogar', 10)");
       await db.query("select public.log_activity($1, 'call', 'contracted', now(), null, 'policy_contracted')", [leadId]);
       await db.query(
-        `insert into public.policies (lead_id, product_name, contracted_at, premium_amount, estimated_commission, confirmed_commission, commission_status)
-         values ($1, 'Hogar', current_date, 300, 30, 28.5, 'confirmed'),
-                ($1, 'hogar ', current_date, 100, 10, 10, 'paid'),
-                ($1, 'Vida', current_date, 500, 50, null, 'pending')`,
+        `insert into public.policies (lead_id, product_code, product_name, contracted_at, premium_amount, policy_value, confirmed_commission, commission_status)
+         values ($1, 'hogar', 'Hogar', current_date, 300, 300, 28.5, 'confirmed'),
+                ($1, 'hogar', 'Hogar', current_date, 100, 100, 10, 'paid'),
+                ($1, 'vida', 'Vida', current_date, 500, 500, null, 'pending')`,
         [leadId],
       );
       const report = await db.query<{ r: Record<string, unknown> }>(
-        "select public.get_report(current_date - 7, current_date, 'Europe/Madrid', 'HOGAR') as r",
+        "select public.get_report(current_date - 7, current_date, 'Europe/Madrid', 'hogar') as r",
       );
       const r = report.rows[0].r;
       expect(r.policies_contracted).toBe(2);
-      expect(Number(r.estimated_commission)).toBe(40);
+      expect(Number(r.policy_value_total)).toBe(400);
+      expect(Number(r.calculated_commission)).toBe(40);
       expect(Number(r.confirmed_commission)).toBe(38.5);
       expect(Number(r.paid_commission)).toBe(10);
       expect(r.leads_contacted).toBe(1);
@@ -383,7 +406,9 @@ describe("RPC", () => {
         "select public.get_dashboard_summary(current_date - 30, current_date, 'Europe/Madrid') as r",
       );
       expect(dash.rows[0].r.policies_contracted).toBe(3);
-      expect(Number(dash.rows[0].r.estimated_commission)).toBe(90);
+      expect(Number(dash.rows[0].r.calculated_commission)).toBe(40);
+      // La póliza de Vida no tiene regla: no se inventa una comisión.
+      expect(dash.rows[0].r.policies_without_commission).toBe(1);
 
       const series = await db.query<{ r: Array<{ contracted: number }> }>(
         "select public.get_results_series(current_date - 6, current_date, 'Europe/Madrid', 'day') as r",
@@ -407,7 +432,8 @@ describe("RPC", () => {
 
   it("anon no puede ejecutar las funciones RPC", async () => {
     await asUser(db, null, async () => {
-      await expect(db.query("select public.get_product_options()")).rejects.toThrow(/permission denied/);
+      await expect(db.query("select public.get_dashboard_summary(current_date, current_date)")).rejects.toThrow(/permission denied/);
+      await expect(db.query("select public.recalculate_missing_commissions()")).rejects.toThrow(/permission denied/);
       await expect(db.query("select public.delete_my_account()")).rejects.toThrow(/permission denied/);
     });
   });

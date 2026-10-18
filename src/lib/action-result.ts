@@ -30,9 +30,6 @@ export function validationFailure(error: z.ZodError) {
 /** Traduce errores de PostgREST/Postgres a mensajes comprensibles sin filtrar detalles internos. */
 export function databaseErrorMessage(error: { code?: string; message?: string; hint?: string } | null | undefined) {
   if (!error) return "Ha ocurrido un error inesperado.";
-  if (error.hint === "lead_do_not_contact") {
-    return 'No se pueden programar seguimientos para un cliente marcado como "No contactar".';
-  }
   switch (error.code) {
     case "42501":
       return "No tienes permiso para realizar esta acción. Vuelve a iniciar sesión.";
