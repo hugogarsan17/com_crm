@@ -36,6 +36,7 @@ export function policyDefaults(leadId: string, today: string, policy?: Tables<"p
     lead_id: leadId,
     product_code: policy ? (policy.product_code ?? "") : (leadProductCode ?? ""),
     contracted_at: policy ? (policy.contracted_at ?? "") : today,
+    expires_on: policy?.expires_on ?? "",
     premium_amount: money(policy?.premium_amount ?? null),
     policy_value: money(policy?.policy_value ?? null),
     confirmed_commission: money(policy?.confirmed_commission ?? null),
@@ -134,6 +135,12 @@ export function PolicyDialog({
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField name="contracted_at" label="Fecha de contratación" type="date" />
+                <TextField
+                  name="expires_on"
+                  label="Fecha de vencimiento"
+                  type="date"
+                  description="Se añadirá un seguimiento al calendario una semana antes."
+                />
                 <TextField name="premium_amount" label="Prima (€)" inputMode="decimal" placeholder="0,00" />
                 <TextField name="policy_value" label="Valor de póliza (€)" inputMode="decimal" placeholder="0,00" />
                 <TextField name="confirmed_commission" label="Comisión confirmada (€)" inputMode="decimal" placeholder="0,00" />

@@ -160,6 +160,7 @@ export type Database = {
           id: string;
           user_id: string;
           lead_id: string;
+          policy_id: string | null;
           title: string;
           description: string | null;
           due_at: string;
@@ -172,6 +173,7 @@ export type Database = {
           id?: string;
           user_id?: string;
           lead_id: string;
+          policy_id?: string | null;
           title: string;
           description?: string | null;
           due_at: string;
@@ -196,6 +198,13 @@ export type Database = {
             referencedRelation: "leads";
             referencedColumns: ["id", "user_id"];
           },
+          {
+            foreignKeyName: "tasks_policy_fkey";
+            columns: ["policy_id", "lead_id"];
+            isOneToOne: false;
+            referencedRelation: "policies";
+            referencedColumns: ["id", "lead_id"];
+          },
         ];
       };
       policies: {
@@ -206,6 +215,7 @@ export type Database = {
           product_name: string;
           product_code: string | null;
           contracted_at: string | null;
+          expires_on: string | null;
           premium_amount: number | null;
           policy_value: number | null;
           commission_rate: number | null;
@@ -224,6 +234,7 @@ export type Database = {
           product_name: string;
           product_code?: string | null;
           contracted_at?: string | null;
+          expires_on?: string | null;
           premium_amount?: number | null;
           policy_value?: number | null;
           estimated_commission?: number | null;
@@ -237,6 +248,7 @@ export type Database = {
           product_name?: string;
           product_code?: string | null;
           contracted_at?: string | null;
+          expires_on?: string | null;
           premium_amount?: number | null;
           policy_value?: number | null;
           estimated_commission?: number | null;

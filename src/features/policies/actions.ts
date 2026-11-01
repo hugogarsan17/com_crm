@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { databaseErrorMessage, fail, ok, validationFailure, type ActionResult } from "@/lib/action-result";
 import { getActionContext, UNAUTHENTICATED_MESSAGE } from "@/lib/auth";
+import { formatDateTime } from "@/lib/format";
 import { policySchema, type PolicyInput } from "@/lib/validation/policy";
 
 function toPolicyRow(v: z.output<typeof policySchema>, productLabel: string) {
@@ -12,6 +13,7 @@ function toPolicyRow(v: z.output<typeof policySchema>, productLabel: string) {
     // Copia de la etiqueta del catálogo (compatibilidad con exportaciones e informes antiguos).
     product_name: productLabel,
     contracted_at: v.contracted_at,
+    expires_on: v.expires_on,
     premium_amount: v.premium_amount,
     policy_value: v.policy_value,
     confirmed_commission: v.confirmed_commission,
@@ -73,6 +75,18 @@ export async function savePolicy(
       ? " La comisión no se ha calculado porque no hay ningún porcentaje configurado para este producto (Ajustes → Comisiones)."
       : "";
 
+  // El seguimiento de vencimiento lo crea/ajusta la base de datos (trigger); aquí solo se informa.
+  let expiryNote = "";
+  if (v.expires_on) {
+    const { data: reminder } = await supabase
+      .from("tasks")
+      .select("due_at")
+      .eq("policy_id", id)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (reminder) expiryNote = ` Seguimiento de vencimiento en el calendario: ${formatDateTime(reminder.due_at, user.timezone)}.`;
+  }
+
   if (v.mark_lead_contracted) {
     const { error } = await supabase
       .from("leads")
@@ -82,12 +96,12 @@ export async function savePolicy(
       .neq("status", "policy_contracted");
     if (error) {
       refresh();
-      return ok({ id, calculatedCommission }, `Póliza guardada, pero no se pudo actualizar el estado de la ficha.${commissionNote}`);
+      return ok({ id, calculatedCommission }, `Póliza guardada, pero no se pudo actualizar el estado de la ficha.${expiryNote}${commissionNote}`);
     }
   }
 
   refresh();
-  return ok({ id, calculatedCommission }, `${policyId ? "Póliza actualizada" : "Póliza registrada"}.${commissionNote}`);
+  return ok({ id, calculatedCommission }, `${policyId ? "Póliza actualizada" : "Póliza registrada"}.${expiryNote}${commissionNote}`);
 }
 
 export async function deletePolicy(policyId: string): Promise<ActionResult> {

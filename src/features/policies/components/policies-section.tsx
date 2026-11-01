@@ -15,6 +15,21 @@ import { deletePolicy } from "../actions";
 import { COMMISSION_STATUS_LABELS, COMMISSION_STATUS_STYLES } from "../constants";
 import { PolicyDialog, policyDefaults } from "./policy-dialog";
 
+/** Fecha de vencimiento con indicación textual si está próxima (≤ 30 días) o ya pasó. */
+function ExpiryDate({ expiresOn, today }: { expiresOn: string | null; today: string }) {
+  if (!expiresOn) return <span className="text-muted-foreground">—</span>;
+  const days = Math.round((Date.parse(`${expiresOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  return (
+    <span className={cn(days < 0 ? "text-destructive" : days <= 30 && "text-warning")}>
+      {formatDate(expiresOn)}
+      {days < 0 ? <span className="block text-xs">Vencida</span> : null}
+      {days >= 0 && days <= 30 ? (
+        <span className="block text-xs">{days === 0 ? "Vence hoy" : `En ${days} ${days === 1 ? "día" : "días"}`}</span>
+      ) : null}
+    </span>
+  );
+}
+
 export function PoliciesSection({
   policies,
   leadId,
@@ -51,6 +66,12 @@ export function PoliciesSection({
                 <div>
                   <dt className="text-xs text-muted-foreground">Contratada</dt>
                   <dd>{formatDate(p.contracted_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Vence</dt>
+                  <dd>
+                    <ExpiryDate expiresOn={p.expires_on} today={today} />
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Prima</dt>

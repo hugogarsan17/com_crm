@@ -117,6 +117,14 @@ describe("importes", () => {
     expect(errorPaths(policySchema.safeParse(policy({ product_code: "Texto libre" })))).toContain("product_code");
   });
 
+  it("acepta fecha de vencimiento opcional y no anterior a la contratación", () => {
+    expect(policySchema.parse(policy()).expires_on).toBeNull();
+    expect(policySchema.parse(policy({ expires_on: "" })).expires_on).toBeNull();
+    expect(policySchema.parse(policy({ contracted_at: "2026-11-01", expires_on: "2027-11-01" })).expires_on).toBe("2027-11-01");
+    expect(errorPaths(policySchema.safeParse(policy({ contracted_at: "2026-11-01", expires_on: "2026-10-01" })))).toContain("expires_on");
+    expect(errorPaths(policySchema.safeParse(policy({ expires_on: "2026-02-30" })))).toContain("expires_on");
+  });
+
   it("interpreta porcentajes de comisión", () => {
     expect(parsePercent("2,5")).toBe(2.5);
     expect(parsePercent("10 %")).toBe(10);

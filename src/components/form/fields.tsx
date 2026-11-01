@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import { useId, type ComponentProps, type ReactNode } from "react";
 import { Controller, useFormContext, type FieldValues, type Path, type UseFormReturn } from "react-hook-form";
 import { AlertCircleIcon, Loader2Icon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,8 +19,9 @@ function useFieldError(name: string) {
   return getFieldState(name, formState).error;
 }
 
-function fieldId(name: string) {
-  return `field-${name.replace(/\W/g, "-")}`;
+/** Id único por instancia: el mismo formulario puede estar montado dos veces en una página (p. ej. en un diálogo). */
+function useFieldId(name: string) {
+  return `field-${name.replace(/\W/g, "-")}-${useId().replace(/\W/g, "")}`;
 }
 
 type BaseProps = {
@@ -54,7 +55,7 @@ export function TextField({
 }: BaseProps & Omit<ComponentProps<typeof Input>, "name">) {
   const { register } = useFormContext();
   const error = useFieldError(name);
-  const id = fieldId(name);
+  const id = useFieldId(name);
   return (
     <Field data-invalid={!!error} className={className}>
       <FieldLabel htmlFor={id}>
@@ -84,7 +85,7 @@ export function TextareaField({
 }: BaseProps & Omit<ComponentProps<typeof Textarea>, "name">) {
   const { register } = useFormContext();
   const error = useFieldError(name);
-  const id = fieldId(name);
+  const id = useFieldId(name);
   return (
     <Field data-invalid={!!error} className={className}>
       <FieldLabel htmlFor={id}>
@@ -118,7 +119,7 @@ export function SelectField({
 }) {
   const { control } = useFormContext();
   const error = useFieldError(name);
-  const id = fieldId(name);
+  const id = useFieldId(name);
   return (
     <Controller
       control={control}
@@ -160,7 +161,7 @@ export function SelectField({
 export function CheckboxField({ name, label, description, className }: BaseProps) {
   const { control } = useFormContext();
   const error = useFieldError(name);
-  const id = fieldId(name);
+  const id = useFieldId(name);
   return (
     <Controller
       control={control}

@@ -8,6 +8,8 @@ export const policySchema = z
     lead_id: z.uuid(),
     product_code: z.string().trim().regex(PRODUCT_CODE_RE, "Selecciona un producto del catálogo"),
     contracted_at: optionalLocalDate,
+    // Vencimiento: genera un seguimiento automático una semana antes (trigger en la base de datos).
+    expires_on: optionalLocalDate.default(null),
     premium_amount: optionalMoney,
     // Valor de póliza: base del cálculo automático de comisión.
     policy_value: optionalMoney,
@@ -17,6 +19,13 @@ export const policySchema = z
     mark_lead_contracted: z.boolean(),
   })
   .superRefine((v, ctx) => {
+    if (v.expires_on && v.contracted_at && v.expires_on < v.contracted_at) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["expires_on"],
+        message: "El vencimiento no puede ser anterior a la contratación",
+      });
+    }
     if (v.commission_status !== "pending" && v.confirmed_commission == null) {
       ctx.addIssue({
         code: "custom",

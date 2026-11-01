@@ -96,3 +96,13 @@ RPC
 - get_dashboard_summary: pendientes actuales (pending_contact, proposals, open_without_next_action, follow_ups_today, follow_ups_overdue —de cualquier mes—) + métricas del periodo (leads_received, policies_contracted, rejected, policy_value_total, calculated_commission, policies_without_commission, confirmed_commission, paid_commission).
 - get_report: p_product es un código del catálogo (fichas por leads.product_code, pólizas por policies.product_code).
 - get_results_series sin keeps_conditions. import_leads con postal_code, has_funeral_insurance y product_code. get_product_options eliminada.
+
+Cambios de noviembre 2026 (migración 20261101000100_policy_expiry_reminders)
+- policies.expires_on date: fecha de vencimiento de la póliza (check: no anterior a contracted_at).
+- tasks.policy_id uuid: póliza que originó el seguimiento. FK compuesta (policy_id, lead_id) → policies(id, lead_id) on delete cascade, así una tarea solo puede apuntar a una póliza de su misma ficha. Índice único parcial: como máximo un seguimiento pendiente por póliza.
+- Trigger policies_sync_expiry_task (after insert / update of expires_on, product_name; security invoker, respeta RLS):
+  - Con vencimiento futuro crea una tarea pendiente «Vencimiento de póliza: <producto>» 7 días antes a las 10:00 en profiles.timezone. Si esa fecha ya pasó, el aviso queda para dentro de una hora.
+  - Si cambia la fecha, mueve el aviso pendiente; si no hay ninguno pendiente (p. ej. ya completado), crea uno nuevo (renovación).
+  - Si se quita la fecha o ya está vencida, cancela el aviso pendiente.
+  - Las ediciones que no cambian la fecha no recrean ni reprograman el aviso (respeta cambios hechos a mano).
+- La tarea es una tarea normal: aparece en Calendario, Para hoy, Seguimientos, avisos por email al comercial y actualiza next_action/next_follow_up_at de la ficha. No se envía nada al cliente.
