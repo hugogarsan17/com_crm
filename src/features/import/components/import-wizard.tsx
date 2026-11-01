@@ -219,7 +219,7 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
             </div>
             <label
               htmlFor="csv-file"
-              className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-8 text-center hover:bg-muted/50"
+              className="flex cursor-pointer flex-col items-center gap-2 rounded-card border-2 border-dashed border-white/15 p-8 text-center transition-colors duration-200 hover:border-primary/40 hover:bg-white/[0.03]"
             >
               {busy ? <Loader2Icon className="size-8 animate-spin" aria-hidden /> : <FileUpIcon className="size-8 text-muted-foreground" aria-hidden />}
               <span className="font-medium">Pulsa para elegir el archivo</span>
@@ -275,7 +275,7 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
 
             <div>
               <p className="mb-2 text-sm font-medium">Vista previa (primeras 5 filas)</p>
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="overflow-x-auto rounded-2xl border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -322,11 +322,11 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
             <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 ["Filas en el archivo", summary.total, ""],
-                ["Válidas y nuevas", summary.clean, "text-emerald-700"],
-                ["Posibles duplicados", summary.duplicates, "text-amber-700"],
+                ["Válidas y nuevas", summary.clean, "text-success"],
+                ["Posibles duplicados", summary.duplicates, "text-warning"],
                 ["Con errores (no se importan)", summary.invalid, "text-destructive"],
               ].map(([label, value, cls]) => (
-                <div key={label as string} className="rounded-lg border p-3">
+                <div key={label as string} className="rounded-2xl border p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
                   <dd className={`text-2xl font-semibold tabular-nums ${cls}`}>{value}</dd>
                 </div>
@@ -334,7 +334,7 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
             </dl>
 
             {summary.duplicates > 0 ? (
-              <div className="flex items-start gap-2 rounded-lg border p-3">
+              <div className="flex items-start gap-2 rounded-2xl border p-3">
                 <Checkbox id="include-dups" checked={includeDuplicates} onCheckedChange={(c) => setIncludeDuplicates(c === true)} />
                 <div>
                   <Label htmlFor="include-dups">Importar también los posibles duplicados</Label>
@@ -345,7 +345,7 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
               </div>
             ) : null}
 
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-2xl border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -370,11 +370,11 @@ export function ImportWizard({ timezone, products }: { timezone: string; product
                           {!r.value ? (
                             <span className="text-destructive">{r.errors.join(" · ")}</span>
                           ) : r.duplicate ? (
-                            <span className="text-amber-700">
+                            <span className="text-warning">
                               Duplicado por {r.duplicate.field} {r.duplicate.source === "existing" ? "con la ficha" : "con"} {r.duplicate.matchName}
                             </span>
                           ) : (
-                            <span className="text-emerald-700">Lista para importar</span>
+                            <span className="text-success">Lista para importar</span>
                           )}
                         </TableCell>
                       </TableRow>

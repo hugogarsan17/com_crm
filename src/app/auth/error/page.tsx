@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Enlace no válido" };
 
 export default function AuthErrorPage() {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 px-4">
+    <div className="flex min-h-svh items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <AuthCard
           title="El enlace no es válido"

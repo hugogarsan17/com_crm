@@ -11,7 +11,7 @@ export const COMMISSION_STATUS_LABELS: Record<CommissionStatus, string> = {
 };
 
 export const COMMISSION_STATUS_STYLES: Record<CommissionStatus, string> = {
-  pending: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  confirmed: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
-  paid: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+  pending: "border border-[#f5c453]/30 bg-[#f5c453]/10 text-[#f8d98a]",
+  confirmed: "border border-[#8fb8ff]/30 bg-[#8fb8ff]/10 text-[#b7d0ff]",
+  paid: "border border-primary/35 bg-primary/12 text-primary",
 };

@@ -30,7 +30,7 @@ export type TaskRowData = {
 
 const BUCKET_STYLES = {
   overdue: "text-destructive font-medium",
-  today: "text-amber-700 dark:text-amber-400 font-medium",
+  today: "text-warning font-medium",
   upcoming: "text-muted-foreground",
   completed: "text-muted-foreground",
   cancelled: "text-muted-foreground line-through",
@@ -40,7 +40,7 @@ export function TaskRow({ task, timezone, now }: { task: TaskRowData; timezone: 
   const bucket = classifyTask(task.due_at, task.status, timezone, now);
   const lead = task.lead;
   return (
-    <li className="flex flex-col gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="surface flex flex-col gap-3 rounded-card p-4 transition-colors duration-200 hover:border-white/20 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {lead ? (

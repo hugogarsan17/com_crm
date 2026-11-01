@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => ({
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
     testTimeout: 30_000,
+    hookTimeout: 30_000,
     // Carga .env, .env.local y .env.test.local (sin exigir prefijo VITE_).
     env: { ...loadEnv(mode, process.cwd(), ""), ...loadEnv("test", process.cwd(), "") },
   },

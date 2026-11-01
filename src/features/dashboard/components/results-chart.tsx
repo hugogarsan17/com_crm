@@ -6,9 +6,9 @@ import type { Bucket } from "@/features/reports/period";
 
 /** Paleta categórica validada (orden fijo; ver skill dataviz). */
 const SERIES = [
-  { key: "contacted", label: "Clientes contactados", color: "#2a78d6" },
-  { key: "contracted", label: "Pólizas contratadas", color: "#eb6834" },
-  { key: "rejected", label: "Rechazos", color: "#1baf7a" },
+  { key: "contacted", label: "Clientes contactados", color: "var(--chart-1)" },
+  { key: "contracted", label: "Pólizas contratadas", color: "var(--chart-2)" },
+  { key: "rejected", label: "Rechazos", color: "var(--chart-3)" },
 ] as const;
 
 function bucketLabel(bucket: string, granularity: Bucket) {
@@ -30,20 +30,20 @@ export function ResultsChart({ data, bucket }: { data: ResultsSeries; bucket: Bu
         <div className="h-64 w-full" role="img" aria-label="Evolución de resultados en el periodo; datos en la tabla siguiente">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
-              <CartesianGrid stroke="#e7e6e2" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#52514e" }} minTickGap={16} />
-              <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#52514e" }} width={40} />
+              <CartesianGrid stroke="rgb(255 255 255 / 0.08)" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#a8aea3" }} minTickGap={16} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: "#a8aea3" }} width={40} />
               <Tooltip
-                cursor={{ stroke: "#a3a29b", strokeWidth: 1 }}
-                contentStyle={{ borderRadius: 8, fontSize: 13, borderColor: "#e7e6e2" }}
-                labelStyle={{ color: "#0b0b0b", fontWeight: 600 }}
-                itemStyle={{ color: "#0b0b0b" }}
+                cursor={{ stroke: "rgb(255 255 255 / 0.25)", strokeWidth: 1 }}
+                contentStyle={{ borderRadius: 14, fontSize: 13, borderColor: "rgb(255 255 255 / 0.12)", background: "#1d211c" }}
+                labelStyle={{ color: "#f3f5ef", fontWeight: 600 }}
+                itemStyle={{ color: "#f3f5ef" }}
               />
               <Legend
                 wrapperStyle={{ fontSize: 12 }}
                 iconType="plainline"
                 itemSorter={null}
-                formatter={(value) => <span style={{ color: "#52514e" }}>{value}</span>}
+                formatter={(value) => <span style={{ color: "#a8aea3" }}>{value}</span>}
               />
               {SERIES.map((s) => (
                 <Line
@@ -54,8 +54,8 @@ export function ResultsChart({ data, bucket }: { data: ResultsSeries; bucket: Bu
                   stroke={s.color}
                   strokeWidth={2}
                   isAnimationActive={false}
-                  dot={rows.length <= 14 ? { r: 4, strokeWidth: 2, stroke: "#fcfcfb" } : false}
-                  activeDot={{ r: 5, strokeWidth: 2, stroke: "#fcfcfb" }}
+                  dot={rows.length <= 14 ? { r: 4, strokeWidth: 2, stroke: "#1b1e1a" } : false}
+                  activeDot={{ r: 5, strokeWidth: 2, stroke: "#1b1e1a" }}
                 />
               ))}
             </LineChart>
@@ -64,9 +64,9 @@ export function ResultsChart({ data, bucket }: { data: ResultsSeries; bucket: Bu
       )}
       <details>
         <summary className="cursor-pointer text-sm text-muted-foreground">Ver datos en tabla</summary>
-        <div className="mt-2 max-h-64 overflow-auto rounded-lg border">
+        <div className="mt-2 max-h-64 overflow-auto rounded-2xl border">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-muted text-left">
+            <thead className="sticky top-0 bg-popover text-left">
               <tr>
                 <th className="px-2 py-1 font-medium">Periodo</th>
                 {SERIES.map((s) => (

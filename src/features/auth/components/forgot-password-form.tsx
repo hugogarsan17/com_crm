@@ -23,7 +23,7 @@ export function ForgotPasswordForm() {
   if (sent) {
     return (
       <div className="flex flex-col items-center gap-3 text-center" role="status">
-        <MailCheckIcon className="size-10 text-emerald-600" aria-hidden />
+        <MailCheckIcon className="size-10 text-primary" aria-hidden />
         <p className="font-medium">Revisa tu email</p>
         <p className="text-sm text-muted-foreground">
           Si existe una cuenta con ese email, recibirás un enlace para elegir una nueva contraseña.

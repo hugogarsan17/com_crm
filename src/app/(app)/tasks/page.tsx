@@ -5,6 +5,7 @@ import { CalendarCheckIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { segmentedClass, segmentedItemClass } from "@/components/shared/segmented";
 import { TASK_VIEWS, type TaskView } from "@/features/tasks/constants";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { getTaskCounts, listTasks } from "@/features/tasks/queries";
@@ -31,7 +32,7 @@ async function resolveView(searchParams: SearchParams): Promise<TaskView> {
 function TabLinks({ view, counts }: { view: TaskView | null; counts: Counts | null }) {
   return (
     <nav aria-label="Filtrar seguimientos" className="-mx-4 overflow-x-auto px-4">
-      <ul className="flex w-max gap-1 rounded-lg bg-muted p-1">
+      <ul className={cn(segmentedClass, "w-max")}>
         {(Object.entries(TASK_VIEWS) as [TaskView, string][]).map(([key, label]) => {
           const count = counts && key in counts ? counts[key as keyof Counts] : null;
           const active = key === view;
@@ -40,17 +41,14 @@ function TabLinks({ view, counts }: { view: TaskView | null; counts: Counts | nu
               <Link
                 href={key === "today" ? "/tasks" : `/tasks?view=${key}`}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap",
-                  active ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
+                className={segmentedItemClass(active)}
               >
                 {label}
                 {count ? (
                   <span
                     className={cn(
-                      "rounded-full px-1.5 text-xs",
-                      key === "overdue" ? "bg-destructive text-white" : "bg-muted-foreground/15",
+                      "rounded-full px-1.5 text-xs font-semibold tabular-nums",
+                      key === "overdue" ? "bg-destructive text-background" : "bg-white/10 text-foreground",
                     )}
                   >
                     {count}

@@ -56,7 +56,7 @@ function TilesSkeleton({ count }: { count: number }) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-[90px] rounded-xl" />
+        <Skeleton key={i} className="h-[104px] rounded-card" />
       ))}
     </>
   );
@@ -77,8 +77,8 @@ async function Greeting() {
   const firstName = user.fullName.split(" ")[0];
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Hola{firstName ? `, ${firstName}` : ""}</h1>
-      <p className="text-sm text-muted-foreground">
+      <h1 className="text-3xl font-medium tracking-tight sm:text-[2.15rem]">Hola{firstName ? `, ${firstName}` : ""}</h1>
+      <p className="mt-1 text-sm text-muted-foreground first-letter:uppercase">
         {new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: user.timezone }).format(new Date())}
       </p>
     </>
@@ -195,7 +195,7 @@ async function PeriodTitle({ searchParams }: { searchParams: SearchParams }) {
   const period = await loadPeriod(searchParams);
   return period.month ? (
     <>
-      Resultados de <span className="capitalize">{formatMonth(period.month)}</span>
+      Resultados de {formatMonth(period.month)}
     </>
   ) : (
     <>
@@ -292,7 +292,7 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
           </h2>
           <p className="text-sm text-muted-foreground">Estado actual, sin importar el mes: lo vencido de meses anteriores sigue aquí.</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Suspense fallback={<TilesSkeleton count={4} />}>
             <TodayTiles searchParams={searchParams} />
           </Suspense>
@@ -353,7 +353,7 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
             <PeriodControls searchParams={searchParams} />
           </Suspense>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Suspense fallback={<TilesSkeleton count={6} />}>
             <PeriodTiles searchParams={searchParams} />
           </Suspense>

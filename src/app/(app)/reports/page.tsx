@@ -39,7 +39,7 @@ function TilesSkeleton({ count }: { count: number }) {
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-[90px] rounded-xl" />
+        <Skeleton key={i} className="h-[104px] rounded-card" />
       ))}
     </>
   );
@@ -197,13 +197,13 @@ export default function ReportsPage({ searchParams }: PageProps<"/reports">) {
         <ReportFilters searchParams={searchParams} />
       </Suspense>
 
-      <section aria-label="Actividad" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Actividad" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Suspense fallback={<TilesSkeleton count={7} />}>
           <ActivityTiles searchParams={searchParams} />
         </Suspense>
       </section>
 
-      <section aria-label="Comisiones" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Comisiones" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Suspense fallback={<TilesSkeleton count={4} />}>
           <CommissionTiles searchParams={searchParams} />
         </Suspense>

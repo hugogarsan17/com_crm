@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { localDateTimeToIso } from "@/lib/dates";
 import { sanitizeSearchTerm } from "@/lib/normalize";
 import type { Tables } from "@/types/database.types";
-import { CLOSED_LEAD_STATUSES, LEADS_PAGE_SIZE } from "./constants";
+import { CLOSED_LEAD_STATUSES, LEADS_PAGE_SIZE, OPEN_NEEDS_FOLLOW_UP } from "./constants";
 import type { LeadFilters } from "./search-params";
 
 export const LEAD_LIST_COLUMNS =
@@ -95,6 +95,30 @@ export async function listLeads(filters: LeadFilters) {
     pageCount: Math.max(1, Math.ceil((count ?? 0) / LEADS_PAGE_SIZE)),
     timezone: user.timezone,
     fetchedAt: Date.now(),
+  };
+}
+
+/** Métricas de cabecera de la cartera (fichas activas, sin filtros de la lista). */
+export async function getLeadsOverview() {
+  const { user, supabase } = await requireUser();
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const active = () =>
+    supabase.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("archived_at", null);
+
+  const [total, receivedThisWeek, contactedThisWeek, withoutNextAction] = await Promise.all([
+    active(),
+    active().gte("received_at", weekAgo),
+    active().gte("last_contact_at", weekAgo),
+    active().in("status", [...OPEN_NEEDS_FOLLOW_UP]).is("next_follow_up_at", null),
+  ]);
+  if (total.error || receivedThisWeek.error || contactedThisWeek.error || withoutNextAction.error) {
+    throw new Error("No se pudieron cargar las métricas de fichas.");
+  }
+  return {
+    total: total.count ?? 0,
+    receivedThisWeek: receivedThisWeek.count ?? 0,
+    contactedThisWeek: contactedThisWeek.count ?? 0,
+    withoutNextAction: withoutNextAction.count ?? 0,
   };
 }
 

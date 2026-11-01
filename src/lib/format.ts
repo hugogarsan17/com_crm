@@ -56,3 +56,18 @@ export function whatsappHref(phone: string) {
   if (digits.length === 9) digits = `34${digits}`;
   return `https://wa.me/${digits}`;
 }
+
+const relative = new Intl.RelativeTimeFormat("es-ES", { numeric: "auto", style: "short" });
+
+/** Tiempo relativo compacto ("hace 2 días", "ayer", "en 3 h"). */
+export function formatRelative(iso: string | null | undefined, now: number = Date.now()) {
+  if (!iso) return "—";
+  const diffSec = (new Date(iso).getTime() - now) / 1000;
+  const abs = Math.abs(diffSec);
+  if (abs < 60) return "ahora";
+  if (abs < 3600) return relative.format(Math.round(diffSec / 60), "minute");
+  if (abs < 86_400) return relative.format(Math.round(diffSec / 3600), "hour");
+  if (abs < 86_400 * 30) return relative.format(Math.round(diffSec / 86_400), "day");
+  if (abs < 86_400 * 365) return relative.format(Math.round(diffSec / (86_400 * 30)), "month");
+  return relative.format(Math.round(diffSec / (86_400 * 365)), "year");
+}

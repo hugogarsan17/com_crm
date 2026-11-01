@@ -157,7 +157,7 @@ export function MonthNavigator({ month, currentMonth }: { month: string; current
       <Button variant="outline" size="icon-lg" disabled={pending} onClick={() => go(prev)} aria-label={`Ver ${formatMonth(prev)}`}>
         <ChevronLeftIcon />
       </Button>
-      <span className="min-w-36 text-center text-sm font-medium capitalize" aria-live="polite">
+      <span className="inline-block min-w-36 text-center text-sm font-medium first-letter:uppercase" aria-live="polite">
         {formatMonth(month)}
       </span>
       <Button

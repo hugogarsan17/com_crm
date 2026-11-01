@@ -5,6 +5,7 @@ import { AlertTriangleIcon, ArchiveIcon, ChevronLeftIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InitialsAvatar } from "@/components/shared/initials-avatar";
 import { ActivityTimeline } from "@/features/activities/components/activity-timeline";
 import { ACTIVITY_OUTCOME_LABELS } from "@/features/activities/constants";
 import { FuneralInsuranceBadge, LeadStatusBadge, PriorityBadge } from "@/features/leads/components/badges";
@@ -67,8 +68,9 @@ async function LeadHeader({ params }: { params: Params }) {
   const needsNextAction = OPEN_NEEDS_FOLLOW_UP.includes(lead.status) && !lead.next_follow_up_at;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{lead.full_name}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <InitialsAvatar name={lead.full_name} seed={lead.id} className="size-12 text-base" />
+        <h1 className="min-w-0 text-2xl font-medium tracking-tight break-words sm:text-3xl">{lead.full_name}</h1>
         <LeadStatusBadge status={lead.status} className="text-sm" />
         <PriorityBadge priority={lead.priority} />
       </div>

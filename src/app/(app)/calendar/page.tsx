@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { segmentedClass, segmentedItemClass } from "@/components/shared/segmented";
 import { CalendarTask, NewCalendarTaskButton, type CalendarTaskData } from "@/features/calendar/components/calendar-task";
 import {
   CALENDAR_VIEWS,
@@ -83,21 +84,18 @@ async function Toolbar({ searchParams }: { searchParams: SearchParams }) {
             <ChevronRightIcon />
           </Link>
         </Button>
-        <h2 className="text-lg font-semibold first-letter:uppercase" aria-live="polite">
+        <h2 className="ml-1 text-lg font-semibold tracking-tight first-letter:uppercase" aria-live="polite">
           {calendarTitle(range)}
         </h2>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <nav aria-label="Vista del calendario" className="inline-flex rounded-lg bg-muted p-1">
+        <nav aria-label="Vista del calendario" className={segmentedClass}>
           {(Object.entries(CALENDAR_VIEWS) as [CalendarView, string][]).map(([view, label]) => (
             <Link
               key={view}
               href={calendarHref(view, range.date)}
               aria-current={view === range.view ? "page" : undefined}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium",
-                view === range.view ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
+              className={segmentedItemClass(view === range.view)}
             >
               {label}
             </Link>
@@ -123,7 +121,7 @@ function DayHeading({ date, today, link }: { date: string; today: string; link?:
   const text = (
     <>
       <span className="capitalize">{dayLabel(date, { weekday: "long" })}</span>{" "}
-      <span className={cn("tabular-nums", isToday && "rounded-full bg-primary px-1.5 text-primary-foreground")}>
+      <span className={cn("tabular-nums", isToday && "rounded-full bg-primary px-2 py-0.5 font-semibold text-primary-foreground")}>
         {dayLabel(date, { day: "numeric", month: "short" })}
       </span>
       {isToday ? <span className="sr-only"> (hoy)</span> : null}
@@ -184,7 +182,7 @@ async function CalendarBody({ searchParams }: { searchParams: SearchParams }) {
               <section
                 key={day}
                 aria-label={dayLabel(day, { weekday: "long", day: "numeric", month: "long" })}
-                className={cn("flex min-h-24 flex-col gap-2 rounded-xl border bg-card p-2", day === range.today && "border-primary")}
+                className={cn("surface flex min-h-24 flex-col gap-2 rounded-2xl p-2.5", day === range.today && "border-primary/60")}
               >
                 <DayHeading date={day} today={range.today} link />
                 {list.length ? (
@@ -212,10 +210,10 @@ async function CalendarBody({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       {notice}
-      <div className="hidden overflow-hidden rounded-xl border md:block">
-        <div className="grid grid-cols-7 border-b bg-muted text-center text-xs font-medium text-muted-foreground">
+      <div className="surface hidden overflow-hidden rounded-card md:block">
+        <div className="grid grid-cols-7 border-b bg-white/[0.03] text-center text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="py-1.5">
+            <div key={d} className="py-2.5">
               {d}
             </div>
           ))}
@@ -225,11 +223,11 @@ async function CalendarBody({ searchParams }: { searchParams: SearchParams }) {
             const list = byDay.get(day) ?? [];
             const outside = !day.startsWith(month);
             return (
-              <div key={day} className={cn("flex min-h-28 flex-col gap-1 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", outside && "bg-muted/40")}>
+              <div key={day} className={cn("flex min-h-28 flex-col gap-1 border-r border-b p-2 transition-colors duration-150 hover:bg-white/[0.02] [&:nth-child(7n)]:border-r-0", outside && "bg-black/20")}>
                 <Link
                   href={calendarHref("day", day)}
                   className={cn(
-                    "self-start rounded-full px-1.5 text-xs tabular-nums hover:underline",
+                    "flex h-6 min-w-6 items-center justify-center self-start rounded-full px-1.5 text-xs tabular-nums hover:underline",
                     day === range.today ? "bg-primary text-primary-foreground" : outside ? "text-muted-foreground" : "font-medium",
                   )}
                   aria-label={dayLabel(day, { weekday: "long", day: "numeric", month: "long" })}

@@ -15,7 +15,7 @@ export function LeadStatusBadge({ status, className }: { status: LeadStatus; cla
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap before:size-1.5 before:shrink-0 before:rounded-full before:content-['']",
         LEAD_STATUS_STYLES[status],
         className,
       )}
@@ -30,10 +30,10 @@ export function PriorityBadge({ priority }: { priority: LeadPriority }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
         priority === "high"
-          ? "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200"
-          : "bg-muted text-muted-foreground",
+          ? "border border-[#ffb38a]/30 bg-[#ffb38a]/12 text-[#ffc6a6]"
+          : "border border-border bg-white/[0.04] text-muted-foreground",
       )}
     >
       {priority === "high" ? <FlameIcon className="size-3" aria-hidden /> : null}
@@ -48,12 +48,12 @@ export function FuneralInsuranceBadge({ value, className }: { value: boolean | n
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
         v === "yes"
-          ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          ? "border border-success/30 bg-success/10 text-success"
           : v === "no"
-            ? "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
-            : "border border-dashed text-muted-foreground",
+            ? "border border-border bg-white/[0.05] text-foreground/80"
+            : "border border-dashed border-white/15 text-muted-foreground",
         className,
       )}
     >
@@ -69,8 +69,8 @@ export function LegacyStatusBadge({ legacyStatus }: { legacyStatus: string | nul
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-        doNotContact ? "bg-red-600 text-white dark:bg-red-700" : "bg-muted text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+        doNotContact ? "border border-destructive/40 bg-destructive/15 text-destructive" : "border border-border bg-white/[0.04] text-muted-foreground",
       )}
       title="Estado anterior a la simplificación de estados"
     >

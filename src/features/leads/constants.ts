@@ -25,12 +25,12 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
 
 /** Clases de color por estado (badge). */
 export const LEAD_STATUS_STYLES: Record<LeadStatus, string> = {
-  pending_contact: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
-  no_answer: "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200",
-  follow_up: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  proposal_in_progress: "bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200",
-  policy_contracted: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-  rejected: "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200",
+  pending_contact: "border-[#8fb8ff]/30 bg-[#8fb8ff]/10 text-[#b7d0ff] before:bg-[#8fb8ff]",
+  no_answer: "border-white/12 bg-white/[0.05] text-foreground/80 before:bg-[#a8aea3]",
+  follow_up: "border-[#f5c453]/30 bg-[#f5c453]/10 text-[#f8d98a] before:bg-[#f5c453]",
+  proposal_in_progress: "border-[#c9b6f2]/30 bg-[#c9b6f2]/10 text-[#dccff8] before:bg-[#c9b6f2]",
+  policy_contracted: "border-primary/35 bg-primary/12 text-primary before:bg-primary",
+  rejected: "border-[#ff8f80]/30 bg-[#ff8f80]/10 text-[#ffb3a9] before:bg-[#ff8f80]",
 };
 
 export const LEAD_PRIORITY_LABELS: Record<LeadPriority, string> = {

@@ -26,7 +26,7 @@ export function RegisterForm() {
   if (sentTo) {
     return (
       <div className="flex flex-col items-center gap-3 text-center" role="status">
-        <MailCheckIcon className="size-10 text-emerald-600" aria-hidden />
+        <MailCheckIcon className="size-10 text-primary" aria-hidden />
         <p className="font-medium">Revisa tu email</p>
         <p className="text-sm text-muted-foreground">
           Si <strong>{sentTo}</strong> no estaba registrado, te hemos enviado un enlace para confirmar tu cuenta.

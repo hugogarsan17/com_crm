@@ -32,6 +32,7 @@ export const leadFiltersSchema = z.object({
     .optional()
     .catch(undefined)
     .transform((v) => v ?? "received_desc"),
+  layout: z.enum(["grid", "table"]).optional().catch(undefined).transform((v) => v ?? "grid"),
   view: z.enum(["active", "archived"]).optional().catch(undefined).transform((v) => v ?? "active"),
   page: z.coerce.number().int().min(1).max(10_000).optional().catch(undefined).transform((v) => v ?? 1),
 });
@@ -53,6 +54,7 @@ export function leadFiltersToSearch(filters: Partial<LeadFilters>) {
     if (v === undefined || v === null || v === "") continue;
     if (k === "sort" && v === "received_desc") continue;
     if (k === "view" && v === "active") continue;
+    if (k === "layout" && v === "grid") continue;
     if (k === "page" && v === 1) continue;
     sp.set(k, String(v));
   }

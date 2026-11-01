@@ -25,9 +25,9 @@ export type CalendarTaskData = {
 };
 
 const STATUS_STYLES: Record<TaskStatus, string> = {
-  pending: "border-l-primary bg-card hover:bg-muted",
-  completed: "border-l-emerald-500 bg-muted/40 text-muted-foreground hover:bg-muted",
-  cancelled: "border-l-zinc-400 bg-muted/40 text-muted-foreground line-through hover:bg-muted",
+  pending: "border-l-primary bg-white/[0.05] hover:bg-white/[0.09]",
+  completed: "border-l-success bg-white/[0.02] text-muted-foreground hover:bg-white/[0.06]",
+  cancelled: "border-l-white/30 bg-white/[0.02] text-muted-foreground line-through hover:bg-white/[0.06]",
 };
 
 /** Tarea dentro del calendario. Al pulsarla se abre el detalle con sus acciones y el enlace a la ficha. */
@@ -41,7 +41,7 @@ export function CalendarTask({ task, timezone, compact = false }: { task: Calend
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "flex w-full min-w-0 flex-col rounded-md border border-l-4 px-2 py-1 text-left text-xs transition-colors",
+          "flex w-full min-w-0 flex-col rounded-lg border border-l-[3px] px-2 py-1 text-left text-xs transition-colors duration-150 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
           STATUS_STYLES[task.status],
           task.overdue && "border-l-destructive",
         )}

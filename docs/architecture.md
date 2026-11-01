@@ -47,3 +47,9 @@ Decisiones de implementación (octubre 2026)
 - Códigos postales: `/api/postal-codes/[cp]` (con sesión) consulta Zippopotam.us (datos GeoNames) con 4 s de timeout. Dependencia externa sin SLA: si falla, la localidad se escribe a mano.
 - Calendario (`/calendar`) sobre la tabla `tasks` existente; sin tabla paralela.
 - Avisos por email con la API REST de Resend (fetch, sin SDK) desde una Route Handler programada (Vercel Cron, vercel.json). Idempotencia con `notification_log`.
+Interfaz y sistema de diseño (noviembre 2026)
+- Tema oscuro único (clase `dark` en `<html>`): grafito con degradados ambientales, superficies translúcidas, bordes finos y acento verde lima. Tokens en `src/app/globals.css` (`--background`, `--surface*`, `--brand`, `--radius-card`, `--radius-control`…); los nombres de shadcn (`--primary`, `--card`…) apuntan a ellos. Fuente Manrope (`next/font`).
+- Utilidades `.surface` / `.surface-inset` para tarjetas y paneles; controles en forma de píldora (`components/shared/segmented.tsx`), métricas de cabecera (`metric.tsx`) y avatar con iniciales (`initials-avatar.tsx`).
+- Estructura: cabecera con marca, navegación principal en cápsula centrada (`NAV_ITEMS`) y perfil; barra lateral estrecha de iconos con accesos secundarios (`ACTION_ITEMS`: nueva ficha, importar, exportar; ajustes). En móvil (< lg): barra inferior flotante y los accesos secundarios en el menú de perfil.
+- Fichas: vista de tarjetas (por defecto) o tabla mediante el parámetro de URL `layout=grid|table`; en móvil siempre tarjetas. Métricas de cabecera reales (`getLeadsOverview`).
+- Se respeta `prefers-reduced-motion`; transiciones de 150–220 ms.

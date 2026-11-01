@@ -65,7 +65,7 @@ function CommissionPreview({ products, rules }: { products: Product[]; rules: Co
       ) : preview.status === "missing_value" ? (
         <p className="text-muted-foreground">Indica el valor de póliza para calcularla.</p>
       ) : (
-        <p className="text-amber-800 dark:text-amber-300">
+        <p className="text-warning">
           No se puede calcular: no hay porcentaje de comisión configurado{product ? ` para «${product.label}»` : ""}.{" "}
           <Link href="/settings#comisiones" className="font-medium underline underline-offset-4">
             Configurarlo en Ajustes

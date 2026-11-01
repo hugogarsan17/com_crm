@@ -1,63 +1,50 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { PlusIcon, ShieldCheckIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MobileMenu } from "@/components/app-shell/mobile-menu";
-import { MobileBottomNav, SidebarNav } from "@/components/app-shell/nav";
-import { UserMenu } from "@/components/app-shell/user-menu";
-import { APP_NAME } from "@/lib/app";
+import { Brand } from "@/components/app-shell/brand";
+import { MobileBottomNav, SideRail, TopNav } from "@/components/app-shell/nav";
+import { OverdueBell, UserMenu } from "@/components/app-shell/user-menu";
 
-function Brand() {
+function HeaderActions() {
   return (
-    <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-      <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <ShieldCheckIcon className="size-4" aria-hidden />
-      </span>
-      {APP_NAME}
-    </Link>
+    <div className="flex items-center gap-2">
+      <Suspense fallback={<Skeleton className="size-10 rounded-full" />}>
+        <OverdueBell />
+      </Suspense>
+      <Suspense fallback={<Skeleton className="size-10 rounded-full" />}>
+        <UserMenu />
+      </Suspense>
+    </div>
   );
 }
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="min-h-svh md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-svh flex-col gap-6 border-r bg-muted/30 p-4 md:flex">
-        <Brand />
-        <Button asChild>
-          <Link href="/leads/new">
-            <PlusIcon aria-hidden /> Nueva ficha
-          </Link>
-        </Button>
-        <SidebarNav />
-        <div className="mt-auto border-t pt-4">
-          <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-            <UserMenu />
-          </Suspense>
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b bg-background/95 px-2 py-1.5 backdrop-blur md:hidden">
-          <div className="flex items-center gap-1">
-            <MobileMenu
-              footer={
-                <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-                  <UserMenu />
-                </Suspense>
-              }
-            />
-            <Brand />
+    <div className="min-h-svh">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-background/70 backdrop-blur-xl lg:border-0 lg:bg-transparent lg:backdrop-blur-none">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-3 px-4 lg:grid lg:h-20 lg:grid-cols-[1fr_auto_1fr] lg:px-8">
+          <Brand />
+          <div className="hidden lg:block">
+            <TopNav />
           </div>
-          <Button asChild size="lg">
-            <Link href="/leads/new">
-              <PlusIcon aria-hidden /> Nueva
-            </Link>
-          </Button>
-        </header>
-        <main className="flex-1 px-4 pt-5 pb-28 md:px-8 md:py-8">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
-        </main>
+          <div className="flex items-center justify-end gap-2">
+            <Button asChild size="icon-lg" className="lg:hidden" aria-label="Nueva ficha">
+              <Link href="/leads/new">
+                <PlusIcon aria-hidden />
+              </Link>
+            </Button>
+            <HeaderActions />
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex max-w-[1440px] gap-6 px-4 lg:px-8">
+        <aside className="sticky top-24 hidden h-fit shrink-0 lg:block">
+          <SideRail />
+        </aside>
+        <main className="min-w-0 flex-1 pt-4 pb-32 lg:pt-2 lg:pb-12">{children}</main>
       </div>
 
       <MobileBottomNav />

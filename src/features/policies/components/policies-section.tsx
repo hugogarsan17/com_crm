@@ -71,7 +71,7 @@ export function PoliciesSection({
                         ) : null}
                       </>
                     ) : (
-                      <span className="text-xs text-amber-800 dark:text-amber-300">
+                      <span className="text-xs text-warning">
                         {p.policy_value == null ? "Falta el valor de póliza" : "Sin regla de comisión"}
                       </span>
                     )}
