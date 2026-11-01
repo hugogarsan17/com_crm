@@ -19,6 +19,7 @@ import {
 import { leadSchema, type LeadFormInput } from "@/lib/validation/lead";
 import { PostalCodeFields } from "@/features/postal-codes/components/postal-code-fields";
 import { productOptions, type Product } from "@/features/products/catalog";
+import { ScanDocumentButton } from "@/features/scan/components/scan-document-button";
 import { createLead, updateLead } from "../actions";
 import {
   FUNERAL_INSURANCE_LABELS,
@@ -66,6 +67,15 @@ export function LeadForm({
     <FormProvider {...form}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
         <FormRootError />
+        {mode === "create" ? (
+          <div className="surface flex flex-col gap-3 rounded-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <p className="font-medium">¿Tienes la ficha en papel o en una foto?</p>
+              <p className="text-sm text-muted-foreground">Escanéala y rellenamos los datos por ti. Podrás revisarlos antes de crear la ficha.</p>
+            </div>
+            <ScanDocumentButton products={products} />
+          </div>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Datos del cliente</CardTitle>

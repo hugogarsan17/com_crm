@@ -53,3 +53,7 @@ Interfaz y sistema de diseño (noviembre 2026)
 - Estructura: cabecera con marca, navegación principal en cápsula centrada (`NAV_ITEMS`) y perfil; barra lateral estrecha de iconos con accesos secundarios (`ACTION_ITEMS`: nueva ficha, importar, exportar; ajustes). En móvil (< lg): barra inferior flotante y los accesos secundarios en el menú de perfil.
 - Fichas: vista de tarjetas (por defecto) o tabla mediante el parámetro de URL `layout=grid|table`; en móvil siempre tarjetas. Métricas de cabecera reales (`getLeadsOverview`).
 - Se respeta `prefers-reduced-motion`; transiciones de 150–220 ms.
+Escaneo de fichas (noviembre 2026)
+- «Escanear documento» en Nueva ficha: OCR en el navegador con tesseract.js (idioma `spa`). La imagen no se envía a ningún servidor; la primera vez el navegador descarga el motor y el modelo de idioma desde jsDelivr/tessdata (CDN públicos, sin datos del usuario).
+- `src/features/scan/extract.ts` (función pura con pruebas) deduce nombre, teléfono, email, código postal, localidad, número de póliza, seguro de decesos y producto. Solo devuelve valores que pasan las validaciones del formulario y no inventa lo que no reconoce (p. ej. el nombre solo se toma si está etiquetado).
+- Los datos rellenan el formulario para revisarlos; la ficha se crea con «Crear ficha» (misma validación Zod en cliente y servidor, mismos avisos). Solo imágenes; los PDF se capturan como imagen.

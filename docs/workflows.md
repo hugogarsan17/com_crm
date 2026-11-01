@@ -10,6 +10,8 @@ Cerrar gestión
 - Contratada: registrar una o varias pólizas (producto del catálogo y valor de póliza). La comisión se calcula con la regla configurada en Ajustes → Comisiones; si falta la regla o el valor, se indica y no se inventa. La comisión confirmada/pagada se introduce a mano.
 - Rechazada: guardar motivo opcional y fecha de cierre (incluye los antiguos "Mantiene condiciones" y "No contactar"; las fichas que eran "No contactar" muestran un aviso destacado).
 - Vencimiento de póliza (opcional): al indicar la fecha de vencimiento se crea automáticamente un seguimiento una semana antes (10:00, zona del perfil) para revisar la renovación. Cambiar la fecha lo mueve; quitarla lo cancela. Ver docs/database.md.
+Escanear ficha
+- En Nueva ficha, «Escanear documento» (foto o imagen) lee el texto en el dispositivo y propone los campos detectados; el usuario elige cuáles aplicar (y, opcionalmente, guardar el texto leído en Notas), revisa el formulario y crea la ficha. Nada se guarda sin pulsar «Crear ficha».
 Bandeja diaria
 La vista principal debe mostrar para hoy y vencidos (de cualquier mes), además de pendientes de primer contacto. Las métricas de resultados son del mes en curso por defecto, con navegación a meses anteriores; nunca se borran datos al cambiar de mes.
 Calendario
