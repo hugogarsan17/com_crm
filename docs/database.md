@@ -97,7 +97,7 @@ RPC
 - get_report: p_product es un código del catálogo (fichas por leads.product_code, pólizas por policies.product_code).
 - get_results_series sin keeps_conditions. import_leads con postal_code, has_funeral_insurance y product_code. get_product_options eliminada.
 
-Cambios de noviembre 2026 (migración 20261101000100_policy_expiry_reminders)
+Cambios de noviembre 2026 (migración 20261101155701_policy_expiry_reminders)
 - policies.expires_on date: fecha de vencimiento de la póliza (check: no anterior a contracted_at).
 - tasks.policy_id uuid: póliza que originó el seguimiento. FK compuesta (policy_id, lead_id) → policies(id, lead_id) on delete cascade, así una tarea solo puede apuntar a una póliza de su misma ficha. Índice único parcial: como máximo un seguimiento pendiente por póliza.
 - Trigger policies_sync_expiry_task (after insert / update of expires_on, product_name; security invoker, respeta RLS):
@@ -106,3 +106,18 @@ Cambios de noviembre 2026 (migración 20261101000100_policy_expiry_reminders)
   - Si se quita la fecha o ya está vencida, cancela el aviso pendiente.
   - Las ediciones que no cambian la fecha no recrean ni reprograman el aviso (respeta cambios hechos a mano).
 - La tarea es una tarea normal: aparece en Calendario, Para hoy, Seguimientos, avisos por email al comercial y actualiza next_action/next_follow_up_at de la ficha. No se envía nada al cliente.
+
+Cambios de noviembre 2026 (migración 20261102194003_customer_policies_and_lead_contact)
+- leads.address (≤ 200) y leads.secondary_phone (≤ 30): domicilio y teléfono adicional, editables en la ficha y exportados en CSV/JSON.
+- customer_policies: póliza que el cliente YA tiene, leída del escaneo de la hoja «Consulta abreviada». Distinta de `policies` (ventas del comercial): no cuenta en comisiones, panel ni informes. Columnas: policy_number, product_reference (código de producto de la aseguradora, no del catálogo), effect_date, policy_type, payment_frequency (MEN, TRI…), status_code (VI = vigente), cancel_date, covered_until («GAR./ASEG. A FECHA»; se guarda pero aún NO genera avisos: su significado está pendiente de confirmar), annual_premium, first_receipt_amount, next_receipt_amount, consulted_at, coverages jsonb [{nombre, estado}] e insured jsonb [{orden, nombre, edad_real, edad_derecho, baja, motivo}] (validados con Zod, máx. 100 elementos). FK compuesta (lead_id, user_id) → leads, RLS con owns_lead como el resto de tablas hijas, borrado en cascada con la ficha.
+- RPC create_lead_from_scan(p_lead, p_policy, p_task): ficha + póliza del cliente + primera tarea opcional en una transacción (security invoker, respeta RLS).
+- No se guardan: DNI (solo se muestra en la revisión para comprobarlo), IBAN, domicilio de cobro ni la imagen escaneada.
+
+Avisos por email con Supabase (migraciones 20261102185643, 20261102191453 y 20261102191529, creadas desde Claude.ai y traídas al repositorio tal cual, con la misma versión que en remoto)
+- harden_rls_auto_enable_and_fk_indexes: revoca EXECUTE de rls_auto_enable() (función de plataforma) e índices para las FK policies.product_code y tasks(policy_id, lead_id).
+- email_reminders_backend: extensiones pg_net y pg_cron; secreto aleatorio `notify_cron_secret` en Vault; funciones security definer solo para service_role: notify_check_secret(p_secret), notify_claim_due() (reserva idempotente en notification_log: próximos según upcoming_hours, vencidos de los últimos 3 días, reintentos de fallidos hasta 3 intentos y de «sending» atascados > 15 min) y notify_mark(log_id, ok, provider_id, error).
+- schedule_send_reminders: job de pg_cron `send-reminders` cada 15 min que llama por pg_net a la Edge Function con la cabecera x-cron-secret.
+- move_pg_net_to_extensions (20261102195401): pg_net pasa de `public` a `extensions` (se recrea; sus funciones siguen en el esquema `net`, el job no cambia).
+
+Historial de migraciones remoto
+- Desde noviembre 2026 los archivos de `supabase/migrations` usan la misma versión que el historial remoto (`supabase_migrations.schema_migrations`). Las de octubre conservan su nombre original, con versión distinta en remoto: no usar `supabase db push` sin `supabase migration repair`. Aplicar las nuevas con MCP/SQL editor y renombrar el archivo a la versión asignada.

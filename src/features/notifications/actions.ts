@@ -19,11 +19,6 @@ export async function saveNotificationPreferences(input: NotificationPreferences
     .upsert({ user_id: ctx.user.id, ...parsed.data }, { onConflict: "user_id" });
   if (error) return fail(databaseErrorMessage(error));
   refresh();
-
-  const config = notificationsConfigStatus();
-  if (parsed.data.email_enabled && (!config.emailConfigured || !config.cronConfigured)) {
-    return ok(undefined, "Preferencias guardadas. Ojo: el envío de emails aún no está configurado en el servidor, así que no recibirás avisos.");
-  }
   return ok(undefined, "Preferencias guardadas");
 }
 
@@ -32,6 +27,7 @@ export async function sendTestEmail(): Promise<ActionResult> {
   const ctx = await getActionContext();
   if (!ctx) return fail(UNAUTHENTICATED_MESSAGE);
   if (!ctx.user.email) return fail("Tu cuenta no tiene email.");
+  if (!notificationsConfigStatus().emailConfigured) return fail("El email de prueba no está configurado en el servidor.");
 
   const result = await sendEmail({
     to: ctx.user.email,

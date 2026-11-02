@@ -3,9 +3,8 @@
 import { useTransition } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangleIcon, MailIcon } from "lucide-react";
+import { MailIcon } from "lucide-react";
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { applyActionErrors, callAction, CheckboxField, FormRootError, SelectField, SubmitButton } from "@/components/form/fields";
@@ -25,7 +24,7 @@ type Props = {
   timezone: string;
   preferences: { email_enabled: boolean; notify_upcoming: boolean; upcoming_hours: number; notify_overdue: boolean };
   recent: { id: string; kind: string; due_at: string; status: string; created_at: string; error: string | null }[];
-  config: { emailConfigured: boolean; cronConfigured: boolean; missing: string[] };
+  config: { emailConfigured: boolean; missing: string[] };
 };
 
 export function NotificationSettings({ email, timezone, preferences, recent, config }: Props) {
@@ -43,24 +42,8 @@ export function NotificationSettings({ email, timezone, preferences, recent, con
     toast.success(result.message ?? "Guardado");
   });
 
-  const ready = config.emailConfigured && config.cronConfigured;
-
   return (
     <div className="flex flex-col gap-4">
-      {!ready ? (
-        <Alert>
-          <AlertTriangleIcon />
-          <AlertTitle>El envío de emails no está configurado</AlertTitle>
-          <AlertDescription>
-            <p>
-              Puedes guardar tus preferencias, pero no se enviará ningún aviso hasta que el administrador defina en el servidor (Vercel →
-              Settings → Environment Variables): <strong>{config.missing.join(", ")}</strong>. Instrucciones en el README, sección
-              «Avisos por email».
-            </p>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <FormProvider {...form}>
         <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
@@ -68,7 +51,7 @@ export function NotificationSettings({ email, timezone, preferences, recent, con
             <CheckboxField
               name="email_enabled"
               label="Recibir avisos de seguimientos por email"
-              description={`Se envían a ${email}, una vez al día como máximo por cada seguimiento y vencimiento. Nunca se escribe a tus clientes.`}
+              description={`Se envían a ${email}. Se revisa cada 15 minutos y cada seguimiento se avisa una sola vez como próximo y otra como vencido. Nunca se escribe a tus clientes.`}
             />
             {enabled ? (
               <>
@@ -83,7 +66,8 @@ export function NotificationSettings({ email, timezone, preferences, recent, con
                 type="button"
                 variant="outline"
                 size="lg"
-                disabled={testing}
+                disabled={testing || !config.emailConfigured}
+                title={config.emailConfigured ? undefined : `Falta configurar en el servidor: ${config.missing.join(", ")}`}
                 onClick={() =>
                   startTest(async () => {
                     const r = await callAction(() => sendTestEmail());
@@ -95,6 +79,11 @@ export function NotificationSettings({ email, timezone, preferences, recent, con
                 <MailIcon aria-hidden /> Enviar email de prueba
               </Button>
             </div>
+            {!config.emailConfigured ? (
+              <p className="text-xs text-muted-foreground">
+                El email de prueba necesita {config.missing.join(" y ")} en el servidor. Los avisos programados no dependen de esto.
+              </p>
+            ) : null}
           </FieldGroup>
         </form>
       </FormProvider>

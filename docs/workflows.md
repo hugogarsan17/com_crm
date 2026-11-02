@@ -12,6 +12,8 @@ Cerrar gestión
 - Vencimiento de póliza (opcional): al indicar la fecha de vencimiento se crea automáticamente un seguimiento una semana antes (10:00, zona del perfil) para revisar la renovación. Cambiar la fecha lo mueve; quitarla lo cancela. Ver docs/database.md.
 Escanear ficha
 - En Nueva ficha, «Escanear documento» (foto o imagen) lee el texto en el dispositivo y propone los campos detectados; el usuario elige cuáles aplicar (y, opcionalmente, guardar el texto leído en Notas), revisa el formulario y crea la ficha. Nada se guarda sin pulsar «Crear ficha».
+Escanear hoja de póliza («Consulta abreviada»)
+- Nueva ficha → «Hoja de póliza» → foto o imagen. Se revisan todos los datos (ficha del cliente, póliza que ya tiene, garantías, asegurados); los dudosos aparecen marcados y se pueden corregir o completar. Opcionalmente se crea la primera tarea (título, día y hora). Al pulsar «Crear ficha» se guardan juntas ficha, póliza del cliente y tarea.
 Bandeja diaria
 La vista principal debe mostrar para hoy y vencidos (de cualquier mes), además de pendientes de primer contacto. Las métricas de resultados son del mes en curso por defecto, con navegación a meses anteriores; nunca se borran datos al cambiar de mes.
 Calendario
@@ -19,7 +21,7 @@ Calendario
 Ficha: código postal
 - Al escribir un código postal español se consulta la localidad y se rellena si el campo está vacío o conserva el último valor automático; si el servicio falla o no la encuentra, se escribe a mano. Los códigos extranjeros se aceptan sin consulta.
 Avisos por email
-- Cada comercial los activa en Ajustes (vencidos y/o próximos con N horas de antelación). Una tarea programada diaria envía un resumen al propio comercial; cada aviso (tarea, tipo, vencimiento) se envía una sola vez. Cada fila: nombre, teléfono, producto, estado, último resultado, próxima acción y fecha. Permitir acceso directo a la ficha y acciones rápidas en móvil.
+- Cada comercial los activa en Ajustes (vencidos y/o próximos con N horas de antelación). Desde noviembre 2026 los envía Supabase (pg_cron cada 15 min + Edge Function send-reminders): un email por aviso al propio comercial con tarea, cliente, teléfono, fecha y descripción, y un enlace al CRM; cada aviso (tarea, tipo, vencimiento) se envía una sola vez y los vencidos solo durante 3 días. (El resumen diario anterior por Vercel Cron, con producto, estado y último resultado, se retiró.)
 Importar CSV
 - Vista previa y mapeo de columnas.
 - Validar campos y normalizar email/teléfono para cotejo.

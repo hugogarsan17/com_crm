@@ -15,12 +15,6 @@ test.describe("rutas privadas", () => {
     expect(res.status()).toBe(401);
     expect((await request.get("/api/postal-codes/28001")).status()).toBe(401);
   });
-
-  test("la tarea programada de avisos exige el secreto", async ({ request }) => {
-    const res = await request.get("/api/cron/notifications", { headers: { Authorization: "Bearer incorrecto" } });
-    // 401 con CRON_SECRET configurado; 503 (con instrucciones) si falta.
-    expect([401, 503]).toContain(res.status());
-  });
 });
 
 test.describe("formularios de autenticación", () => {

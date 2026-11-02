@@ -74,15 +74,13 @@ npm run dev                     # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | Sí | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` o `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Sí (una de las dos) | Supabase → Project Settings → API Keys |
 | `NEXT_PUBLIC_SITE_URL` | No | URL pública de la app, para los enlaces de los emails. Si falta, se deduce de la petición |
-| `RESEND_API_KEY` | Solo para avisos | Resend → API Keys. Solo servidor |
-| `NOTIFICATIONS_FROM_EMAIL` | Solo para avisos | Remitente con dominio verificado en Resend, p. ej. `Cartera CRM <avisos@tu-dominio.com>` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Solo para avisos | Supabase → Project Settings → API Keys (service_role o secret key). Solo servidor |
-| `CRON_SECRET` | Solo para avisos | Cadena aleatoria (`openssl rand -hex 32`). Vercel Cron la envía como `Authorization: Bearer …` |
+| `RESEND_API_KEY` | Solo para el email de prueba de Ajustes | Resend → API Keys. Solo servidor |
+| `NOTIFICATIONS_FROM_EMAIL` | Solo para el email de prueba de Ajustes | Remitente con dominio verificado en Resend, p. ej. `Cartera CRM <avisos@tu-dominio.com>` |
 | `POSTAL_CODE_LOOKUP_URL` | No | Servicio alternativo de códigos postales (por defecto `https://api.zippopotam.us/es`) |
 
 - En desarrollo van en `.env.local` (o `.env`). Están ignorados por git; solo se versiona `.env.example`.
 - En Vercel van en Project → Settings → Environment Variables, para Production y Preview.
-- La clave `service_role` solo la usa la tarea programada de avisos (`/api/cron/notifications`, código `server-only`). Nunca debe llevar el prefijo `NEXT_PUBLIC_`.
+- La app Next.js no usa la clave `service_role`. Solo la usa la Edge Function `send-reminders` dentro de Supabase (variable que Supabase inyecta automáticamente). Nunca debe llevar el prefijo `NEXT_PUBLIC_`.
 
 ## Base de datos (migraciones)
 
@@ -163,12 +161,15 @@ Al escribir un código postal español en la ficha, el servidor consulta [Zippop
 
 ## Avisos por email
 
-1. Crea una cuenta en Resend, verifica tu dominio y crea una API key.
-2. En Vercel → Settings → Environment Variables (Production): `RESEND_API_KEY`, `NOTIFICATIONS_FROM_EMAIL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` y `NEXT_PUBLIC_SITE_URL`.
-3. `vercel.json` programa `/api/cron/notifications` cada día a las 06:00 UTC (compatible con el plan Hobby). Con el plan Pro puedes aumentar la frecuencia (p. ej. `0 * * * *`). Alternativa: `pg_cron` + `pg_net` en Supabase llamando al endpoint con la cabecera `Authorization: Bearer <CRON_SECRET>`.
-4. Cada comercial activa los avisos en **Ajustes → Avisos por email** y puede enviarse un email de prueba.
+Los envía Supabase, no Vercel: `pg_cron` llama cada 15 minutos (job `send-reminders`, con `pg_net`) a la Edge Function `send-reminders` (`supabase/functions/send-reminders`), que envía los emails con Resend.
 
-Funcionamiento: un email resumen por usuario con los seguimientos vencidos y/o próximos. Cada aviso (tarea + tipo + vencimiento) se registra en `notification_log` con una restricción única, así que no se repite; si se reprograma la tarea, puede volver a avisarse. Los fallos quedan registrados y se reintentan hasta 3 veces. Si falta configuración, el endpoint responde 503 con los nombres de las variables que faltan y no marca nada como enviado; la app sigue funcionando y Ajustes muestra las instrucciones. Prueba manual: `curl -H "Authorization: Bearer $CRON_SECRET" https://tu-app.vercel.app/api/cron/notifications`.
+1. Crea una cuenta en Resend, verifica tu dominio y crea una API key.
+2. En Supabase → Edge Functions → Secrets define `RESEND_API_KEY` y, opcionalmente, `NOTIFY_FROM` (remitente, p. ej. `Cartera CRM <avisos@tu-dominio.com>`), `NOTIFY_REPLY_TO` y `APP_URL` (enlace «Abrir el CRM»). `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase.
+3. Despliega la función con `verify_jwt = false` (ya está en `supabase/config.toml`): `supabase functions deploy send-reminders`. Solo responde a pg_cron, que envía el secreto guardado en Vault (`notify_cron_secret`) en la cabecera `x-cron-secret`.
+4. Las migraciones `…_email_reminders_backend` y `…_schedule_send_reminders` crean las funciones SQL y el job. Comprobación: `select * from cron.job_run_details order by start_time desc limit 5;` y `select status_code, content from net._http_response order by created desc limit 5;`.
+5. Cada comercial activa los avisos en **Ajustes → Avisos por email**. El botón de email de prueba usa `RESEND_API_KEY` y `NOTIFICATIONS_FROM_EMAIL` del servidor de la app (Vercel); si faltan, se desactiva sin afectar a los avisos programados.
+
+Funcionamiento: un email por aviso al propio comercial (nunca al cliente): seguimientos próximos según la antelación elegida y vencidos de los últimos 3 días. Cada aviso (tarea + tipo + vencimiento) se reserva en `notification_log` con una restricción única, así que no se repite; si se reprograma la tarea, puede volver a avisarse. Los fallos quedan registrados y se reintentan hasta 3 veces.
 
 ## Pruebas y comprobaciones
 

@@ -1,0 +1,8 @@
+# Configuración mínima de Supabase CLI para este repositorio.
+# Las migraciones remotas se aplican con MCP/SQL editor (ver docs/database.md).
+project_id = "com-crm"
+
+[functions.send-reminders]
+# La función no usa JWT de usuario: solo responde a pg_cron con el secreto de Vault
+# (cabecera x-cron-secret, comprobada con notify_check_secret).
+verify_jwt = false

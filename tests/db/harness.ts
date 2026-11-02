@@ -5,6 +5,13 @@ import { PGlite } from "@electric-sql/pglite";
 const root = path.resolve(__dirname, "../..");
 const migrationsDir = path.join(root, "supabase/migrations");
 
+// pg_net y pg_cron no existen en PGlite; el stub emula cron/vault y estas sentencias se omiten.
+const PLATFORM_EXTENSION_RE = /^\s*(?:create|drop)\s+extension\b[^;]*\b(?:pg_net|pg_cron)\b[^;]*;/gim;
+
+function readMigration(file: string) {
+  return readFileSync(path.join(migrationsDir, file), "utf8").replace(PLATFORM_EXTENSION_RE, "-- (omitido en PGlite)");
+}
+
 function migrationFiles() {
   return readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
 }
@@ -19,7 +26,7 @@ export async function createTestDatabase(options: { before?: string } = {}) {
   await db.exec(readFileSync(path.join(__dirname, "supabase-stub.sql"), "utf8"));
   for (const file of migrationFiles()) {
     if (options.before && file >= options.before) break;
-    await db.exec(readFileSync(path.join(migrationsDir, file), "utf8"));
+    await db.exec(readMigration(file));
   }
   return db;
 }
@@ -27,7 +34,7 @@ export async function createTestDatabase(options: { before?: string } = {}) {
 /** Aplica las migraciones a partir del prefijo indicado (incluido). */
 export async function applyMigrationsFrom(db: PGlite, from: string) {
   for (const file of migrationFiles()) {
-    if (file >= from) await db.exec(readFileSync(path.join(migrationsDir, file), "utf8"));
+    if (file >= from) await db.exec(readMigration(file));
   }
 }
 
