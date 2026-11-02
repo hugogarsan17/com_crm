@@ -51,3 +51,8 @@ next-env.d.ts
 
 # Modelos de idioma que Tesseract descarga al ejecutarse en Node
 *.traineddata
+
+# Hojas escaneadas reales: nunca al repositorio (datos personales)
+example.jpg
+*.scan.jpg
+*.scan.png

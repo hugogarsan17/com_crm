@@ -27,6 +27,25 @@ export type OcrLine = OcrWord[];
  */
 export const MIN_CONFIDENCE = 70;
 export const MIN_CONFIDENCE_STRICT = 50;
+/** Identificadores críticos (nº de póliza): un dígito cambiado no lo detecta ningún formato. */
+export const MIN_CONFIDENCE_CRITICAL = 90;
+
+/**
+ * Garantías vistas en las hojas. Si una lectura coincide con una de ellas (sin contar
+ * puntuación y aceptando la confusión M/N típica de esta tipografía) se acepta con su
+ * nombre canónico aunque Tesseract dé poca confianza: es un vocabulario cerrado.
+ */
+export const GARANTIAS_CONOCIDAS = [
+  "SER.DECESOS",
+  "PR.INTEGRAL",
+  "ASIS. VIAJE",
+  "AS.EXTRANJ.",
+  "RES.MUNDIAL",
+  "ABOGADO FAM",
+  "AT.MED.DENT",
+  "AC.MUERTE",
+  "AC.MTE.CIRC",
+];
 
 // -----------------------------------------------------------------------------
 // Esquema del resultado (JSON validado)
@@ -128,20 +147,33 @@ export function groupWordsIntoLines(words: OcrWord[]): OcrLine[] {
   return lines.sort((a, b) => cy(a[0]) - cy(b[0]));
 }
 
-/** Elimina el IBAN (la línea etiquetada y cualquier secuencia con su formato) antes de procesar. */
+// Separadores de la pantalla y ruido del OCR («|», «_», «***», «»», «—»…). El guion simple
+// se conserva porque separa municipio, CP y provincia.
+const DECORATION_RE = /^[|_!¡;:[\]{}()“”"'`´~=*»«$.·•—–]+$/;
+
+/** Quita comillas o símbolos pegados a un número («$50», «“5»): marcas del borde, no cifras. */
+function cleanWord(w: OcrWord): OcrWord {
+  const m = /^[$“”"'`´]+(\d+)$/.exec(w.text);
+  return m ? { ...w, text: m[1] } : w;
+}
+
+function isNoise(w: OcrWord) {
+  return w.text !== "-" && (DECORATION_RE.test(w.text) || (w.text.length <= 2 && w.confidence < 10 && !/^\d+$/.test(w.text)));
+}
+
+/** Elimina el IBAN (etiqueta y número) antes de procesar: nunca llega al resultado. */
 export function stripIban(lines: OcrLine[]): OcrLine[] {
   return lines
     .filter((line) => !/^\W*IBAN\b/.test(fold(line.map((w) => w.text).join(" "))))
     .map((line) => {
       const text = line.map((w) => w.text).join(" ");
       const match = IBAN_RE.exec(fold(text));
-      if (!match) return line;
-      // Quita las palabras que forman parte de la secuencia del IBAN.
       let pos = 0;
       return line.filter((w) => {
         const start = pos;
         pos += w.text.length + 1;
-        return start + w.text.length <= match.index || start >= match.index + match[0].length;
+        if (/^IBAN:?$/i.test(w.text)) return false;
+        return !match || start + w.text.length <= match.index || start >= match.index + match[0].length;
       });
     })
     .filter((line) => line.length > 0);
@@ -196,6 +228,15 @@ function wordsAfter(words: OcrWord[], labelEndChar: number) {
 
 // Un segmento que empieza por otra etiqueta no es el valor de la anterior.
 const LOOKS_LIKE_LABEL = /^[A-Z0-9./ ]{1,25}:/;
+// Palabra que es una etiqueta («TLF.», «DNI:», «1.REC:»): corta el valor de la anterior.
+const LABEL_WORD_RE = /^(?:[A-Z0-9][A-Z0-9./]*:|TLF\.?)$/;
+
+function untilLabel(words: OcrWord[]) {
+  const i = words.findIndex((w) => LABEL_WORD_RE.test(fold(w.text)));
+  return i < 0 ? words : words.slice(0, i);
+}
+
+const cyOf = (w: OcrWord) => (w.y0 + w.y1) / 2;
 
 // -----------------------------------------------------------------------------
 // Lector
@@ -206,24 +247,33 @@ class Sheet {
   readonly dudosos = new Set<string>();
   readonly lecturas: Record<string, string> = {};
 
-  constructor(readonly lines: OcrLine[]) {
+  /** `ibanX`: posición horizontal donde estaba el IBAN (solo la posición; el valor se descarta). */
+  constructor(
+    readonly lines: OcrLine[],
+    readonly ibanX: number | null = null,
+  ) {
     this.cw = charWidth(lines);
     this.segs = lines.map((l) => segments(l, this.cw));
   }
 
+  get words() {
+    return this.lines.flat();
+  }
+
   /** Valor tras una etiqueta en la misma línea. `found: false` si la etiqueta no aparece. */
-  after(label: RegExp, maxX?: number): { found: boolean; value: Reading } {
+  after(label: RegExp): { found: boolean; value: Reading } {
     for (const lineSegs of this.segs) {
       for (let i = 0; i < lineSegs.length; i++) {
         const seg = lineSegs[i];
-        if (maxX !== undefined && seg.x0 >= maxX) continue;
-        const m = new RegExp(`^(?:.*?\\s)?(${label.source})\\s*`, "i").exec(fold(seg.text));
+        // La etiqueta puede ir pegada a un separador («|ANUAL:»).
+        const m = new RegExp(`^(?:.*?[^A-Z0-9])?(${label.source})\\s*`, "i").exec(fold(seg.text));
         if (!m) continue;
-        const own = wordsAfter(seg.words, m[0].length);
+        const own = untilLabel(wordsAfter(seg.words, m[0].length));
         if (own.length) return { found: true, value: reading(own) };
         const next = lineSegs[i + 1];
-        if (next && !LOOKS_LIKE_LABEL.test(fold(next.text)) && (maxX === undefined || next.x0 < maxX)) {
-          return { found: true, value: reading(next.words) };
+        if (next && !LOOKS_LIKE_LABEL.test(fold(next.text))) {
+          const value = untilLabel(next.words);
+          return { found: true, value: value.length ? reading(value) : null };
         }
         return { found: true, value: null };
       }
@@ -231,22 +281,30 @@ class Sheet {
     return { found: false, value: null };
   }
 
-  /** Valor situado debajo de una cabecera (alineado por la izquierda con ella). */
+  /**
+   * Valor situado debajo de una cabecera: palabras que empiezan bajo ella y antes de la
+   * cabecera siguiente. Se busca en las dos líneas siguientes (con la perspectiva de una
+   * foto, la columna derecha puede quedar una línea más abajo) sin pasar de una línea
+   * con etiquetas.
+   */
   under(header: RegExp): { found: boolean; value: Reading } {
-    for (let li = 0; li < this.segs.length - 1; li++) {
-      for (const seg of this.segs[li]) {
-        // La cabecera puede compartir segmento con otras («PRODU NUM. POLIZA» con un solo espacio).
-        const words = seg.words;
-        for (let wi = 0; wi < words.length; wi++) {
-          const rest = fold(words.slice(wi).map((w) => w.text).join(" "));
-          const m = new RegExp(`^(${header.source})(?![A-Z])`, "i").exec(rest);
-          if (!m) continue;
-          const nWords = m[1].trim().split(/\s+/).length;
-          const hx0 = words[wi].x0;
-          const hx1 = words[wi + nWords - 1].x1;
-          const below = this.segs[li + 1].flatMap((s) => s.words).filter((w) => w.x0 >= hx0 - this.cw * 1.5 && w.x0 <= hx1);
-          return { found: true, value: reading(below) };
+    for (let li = 0; li < this.lines.length - 1; li++) {
+      const words = this.lines[li];
+      for (let wi = 0; wi < words.length; wi++) {
+        const rest = fold(words.slice(wi).map((w) => w.text).join(" "));
+        const m = new RegExp(`^(${header.source})(?![A-Z])`, "i").exec(rest);
+        if (!m) continue;
+        const nWords = m[1].trim().split(/\s+/).length;
+        const hx0 = words[wi].x0;
+        const hx1 = words[wi + nWords - 1].x1;
+        const nextHeader = words[wi + nWords];
+        const toX = nextHeader ? nextHeader.x0 - this.cw * 0.5 : hx1 + this.cw * 2;
+        for (const line of this.lines.slice(li + 1, li + 3)) {
+          if (line.some((w) => /:$/.test(w.text))) break;
+          const below = line.filter((w) => w.x0 >= hx0 - this.cw * 1.5 && w.x0 < toX);
+          if (below.length) return { found: true, value: reading(below) };
         }
+        return { found: true, value: null };
       }
     }
     return { found: false, value: null };
@@ -260,14 +318,15 @@ class Sheet {
     path: string,
     r: { found: boolean; value: Reading },
     parse: (text: string) => T | null,
-    { emptyIsValid = false, strict = false }: { emptyIsValid?: boolean; strict?: boolean } = {},
+    { emptyIsValid = false, strict = false, critical = false }: { emptyIsValid?: boolean; strict?: boolean; critical?: boolean } = {},
   ): T | null {
     if (!r.value) {
       if (!(emptyIsValid && r.found)) this.dudosos.add(path);
       return null;
     }
     const parsed = parse(r.value.text.trim());
-    if (parsed === null || r.value.confidence < (strict ? MIN_CONFIDENCE_STRICT : MIN_CONFIDENCE)) {
+    const min = critical ? MIN_CONFIDENCE_CRITICAL : strict ? MIN_CONFIDENCE_STRICT : MIN_CONFIDENCE;
+    if (parsed === null || r.value.confidence < min) {
       this.dudosos.add(path);
       this.lecturas[path] = r.value.text.trim();
       return null;
@@ -353,23 +412,40 @@ function formatHolderName(text: string): string | null {
 // -----------------------------------------------------------------------------
 // Secciones
 // -----------------------------------------------------------------------------
-const GARANTIA_ESTADO = /(SEG\.?\s?POL\.?|INCLUIDO|INCL\.?\s*\d+)/;
+const CITY_RE = /^.+\s[-–—]\s*\d{4,5}\s*[-–—]\s.+$/;
 
 function readTomadorAddress(sheet: Sheet) {
-  const headerLine = sheet.segs.findIndex((segs) => segs.some((s) => /DOMICILIO\s+DEL\s+TOMADOR/.test(fold(s.text))));
   const result = { domicilio: null as string | null, municipio: null as string | null, codigo_postal: null as string | null, provincia: null as string | null };
+  // «DOMICILIO DEL TOMADOR» (la primera palabra a veces se lee mal: basta «DEL TOMADOR»).
+  const headerLine = sheet.segs.findIndex((segs) => segs.some((s) => /\bDEL\s+TO[MN]ADOR\b/.test(fold(s.text))));
   if (headerLine < 0) {
     for (const k of ["domicilio", "municipio", "codigo_postal", "provincia"]) sheet.dudosos.add(`tomador.${k}`);
     return result;
   }
-  // El domicilio de cobro puede ir en la misma fila (columna derecha): se ignora todo lo que quede a su altura.
-  const cobro = sheet.segs[headerLine].find((s) => /DOMICILIO\s+DE\s+COBRO/.test(fold(s.text)));
-  const maxX = cobro ? cobro.x0 - sheet.cw : Infinity;
-  const block = sheet.lines.slice(headerLine + 1, headerLine + 4).map((l) => l.filter((w) => w.x1 <= maxX + sheet.cw));
+  // A la derecha van el domicilio de cobro y el IBAN: se toma solo la primera columna
+  // (hasta la cabecera de cobro o el IBAN, si se leen, y en todo caso el primer segmento).
+  const nearby = sheet.lines.slice(headerLine, headerLine + 5).flat();
+  const rightEdges = [
+    ...sheet.segs.slice(headerLine, headerLine + 2).flatMap((segs) => segs.filter((s) => /DOMICILIO\s+DE\s+COBRO/.test(fold(s.text))).map((s) => s.x0)),
+    ...nearby.filter((w) => /^IBAN/i.test(w.text)).map((w) => w.x0),
+    ...(sheet.ibanX !== null ? [sheet.ibanX] : []),
+  ];
+  const maxX = rightEdges.length ? Math.min(...rightEdges) - sheet.cw : Infinity;
+  const block = sheet.lines.slice(headerLine + 1, headerLine + 5).map((line) => {
+    const left = line.filter((w) => w.x1 <= maxX + sheet.cw);
+    if (left.length === 0 || maxX !== Infinity) return left;
+    // Sin referencia de la columna de cobro: se corta en el primer hueco grande (dentro de una
+    // dirección los huecos no pasan de ~1,6 caracteres; entre columnas hay 3 o más).
+    const cut = left.findIndex((w, i) => i > 0 && w.x0 - left[i - 1].x1 > sheet.cw * 2.5);
+    return cut < 0 ? left : left.slice(0, cut);
+  });
 
-  const cityIdx = block.findIndex((l) => /^.+\s[-–—]\s*\d{4,5}\s*[-–—]\s.+$/.test(l.map((w) => w.text).join(" ")));
-  const addressWords = (cityIdx > 0 ? block.slice(0, cityIdx) : block.slice(0, 1)).flat();
-  result.domicilio = sheet.accept("tomador.domicilio", { found: true, value: reading(addressWords) }, parseText(200));
+  const cityIdx = block.findIndex((l) => CITY_RE.test(l.map((w) => w.text).join(" ")));
+  // El domicilio es la línea anterior a la de «MUNICIPIO - CP - PROVINCIA».
+  const addressWords = cityIdx > 0 ? block[cityIdx - 1] : [];
+  result.domicilio = sheet.accept("tomador.domicilio", { found: true, value: reading(addressWords) }, (t) =>
+    parseText(200)(t.replace(/\s+,/g, ",")),
+  );
 
   if (cityIdx < 0) {
     for (const k of ["municipio", "codigo_postal", "provincia"]) sheet.dudosos.add(`tomador.${k}`);
@@ -386,7 +462,7 @@ function readTomadorAddress(sheet: Sheet) {
   if (parts.length !== 3) {
     const conf = Math.min(...cityWords.map((w) => w.confidence));
     const texts = cityWords.map((w) => w.text).join(" ").split(/\s[-–—]\s*|\s*[-–—]\s/).map((t) => t.trim());
-    [munR, cpR, provR] = texts.map((t) => (t ? { text: t, confidence: conf } : null));
+    [munR, cpR, provR] = texts.length === 3 ? texts.map((t) => (t ? { text: t, confidence: conf } : null)) : [null, null, null];
   }
   const provincia = provR?.text;
 
@@ -401,95 +477,142 @@ function readTomadorAddress(sheet: Sheet) {
   return result;
 }
 
+/** Clave para comparar con el vocabulario: solo letras y M=N (confusión típica del OCR). */
+const vocabKey = (t: string) => fold(t).replace(/[^A-Z]/g, "").replace(/M/g, "N");
+const GARANTIAS_BY_KEY = new Map(GARANTIAS_CONOCIDAS.map((g) => [vocabKey(g), g]));
+
+/** Estado de garantía canónico si la lectura es exactamente uno de los conocidos. */
+function canonicalEstado(text: string): string | null {
+  const key = fold(text).replace(/[^A-Z0-9]/g, "");
+  // Se admiten hasta 2 caracteres del borde de la tabla pegados delante («1INCLUIDO», «5SEG»),
+  // pero no letras mal leídas («EG POL»): eso queda como dudoso.
+  const candidates = [key];
+  if (/^[0-9I]/.test(key)) candidates.push(key.slice(1));
+  if (/^[0-9I]{2}/.test(key)) candidates.push(key.slice(2));
+  for (const k of candidates) {
+    if (k === "SEGPOL") return "SEG.POL.";
+    if (k === "INCLUIDO") return "INCLUIDO";
+    const incl = /^INCL(\d{1,2})$/.exec(k);
+    if (incl) return `INCL. ${incl[1]}`;
+  }
+  return null;
+}
+
 function readTable(sheet: Sheet) {
   const garantias: ConsultaAbreviada["garantias"] = [];
   const asegurados: ConsultaAbreviada["asegurados"] = [];
+  const words = sheet.words;
 
-  const headerLine = sheet.lines.findIndex((l) => /X\/G\/P\s+NOMBRE/.test(fold(l.map((w) => w.text).join(" "))));
-  const header = headerLine >= 0 ? sheet.lines[headerLine] : null;
-  const col = (re: RegExp) => header?.find((w) => re.test(fold(w.text)));
-  const cols = header
-    ? (
-        [
-          ["orden", col(/^X\/G\/P$/)],
-          ["nombre", col(/^NOMBRE$/)],
-          ["edad_real", col(/^REAL$/)],
-          ["edad_derecho", col(/^DER\.?$/)],
-          ["baja", col(/^BAJA$/)],
-          ["motivo", col(/^MOT\.?$/)],
-        ] as const
-      ).filter((c): c is readonly [typeof c[0], OcrWord] => Boolean(c[1]))
-    : [];
-  const tableX0 = cols.length ? cols[0][1].x0 - sheet.cw : Infinity;
-
-  // Garantías: columna izquierda (a la izquierda de la tabla de asegurados, si existe).
-  // Nombre y estado se valoran por separado con la confianza de sus propias palabras.
-  const estadoRe = new RegExp(`^${GARANTIA_ESTADO.source}$`);
-  sheet.lines.forEach((line) => {
-    const left = line.filter((w) => w.x1 <= tableX0);
-    let nameWords: OcrWord[] = [];
-    for (let i = 0; i < left.length; i++) {
-      // El estado puede ocupar una o dos palabras («INCL. 2», «SEG. POL.»).
-      const two = i + 1 < left.length ? fold(`${left[i].text} ${left[i + 1].text}`) : "";
-      const one = fold(left[i].text);
-      const span = estadoRe.test(two) ? 2 : estadoRe.test(one) ? 1 : 0;
-      if (span === 0 || nameWords.length === 0) {
-        if (span === 0) nameWords.push(left[i]);
-        continue;
-      }
-      const nombreText = nameWords.map((w) => w.text).join(" ");
-      if (!/[:]/.test(nombreText) && !/TOMADOR|DOMICILIO|PRIMAS|ANUAL/.test(fold(nombreText))) {
-        const idx = garantias.length;
-        garantias.push({
-          nombre: sheet.accept(`garantias.${idx}.nombre`, { found: true, value: reading(nameWords) }, (t) => (/\p{L}{3}/u.test(t) && t.length <= 80 ? fold(t) : null)),
-          estado: sheet.accept(`garantias.${idx}.estado`, { found: true, value: reading(left.slice(i, i + span)) }, (t) => fold(t).replace(/\s+/g, " ").replace(/^SEG\.? ?POL\.?$/, "SEG.POL."), { strict: true }),
-        });
-      }
-      nameWords = [];
-      i += span - 1;
-    }
+  // Cabecera de la tabla de asegurados (la marca «X/G/P» suele leerse mal; NOMBRE, REAL y DER no).
+  const header = sheet.lines.find((l) => {
+    const t = fold(l.map((w) => w.text).join(" "));
+    return /\bNOMBRE\b/.test(t) && /\bREAL\b/.test(t) && /\bDER\b/.test(t);
   });
-
-  if (!header || cols.length === 0) {
+  if (!header) {
     sheet.dudosos.add("asegurados");
     return { garantias, asegurados };
   }
+  const nombre = header.find((w) => fold(w.text) === "NOMBRE")!;
+  const lineH = nombre.y1 - nombre.y0;
+  const headerTop = Math.min(...header.map(cyOf));
+  const marker = header.filter((w) => w.x1 <= nombre.x0 && w.text.includes("/")).pop();
+  const tableX0 = (marker ? marker.x0 : nombre.x0 - sheet.cw * 8) - sheet.cw;
+  // Fin de la tabla: la línea de primas («ANUAL: … 1.REC: … S.REC: …»).
+  const totals = sheet.lines.find((l) => l.some((w) => /REC:$/.test(fold(w.text))));
+  // Con perspectiva, una misma fila no está a la misma altura de lado a lado: se usa la fila entera.
+  const top = headerTop - lineH / 2;
+  const bottom = totals ? Math.min(...totals.map(cyOf)) - lineH / 2 : Infinity;
+  const inBand = (w: OcrWord) => cyOf(w) >= top && cyOf(w) < bottom;
 
-  // Asegurados: filas bajo la cabecera cuya primera columna es un número de orden.
-  const bounds = cols.map(([key, w], i) => ({ key, from: w.x0 - sheet.cw * 1.5, to: i + 1 < cols.length ? cols[i + 1][1].x0 - sheet.cw * 1.5 : Infinity }));
-  for (let li = headerLine + 1; li < sheet.lines.length; li++) {
-    const right = sheet.lines[li].filter((w) => w.x0 >= bounds[0].from);
-    if (right.length === 0) continue;
-    const cells = Object.fromEntries(bounds.map((b) => [b.key, right.filter((w) => w.x0 >= b.from && w.x0 < b.to)])) as Record<string, OcrWord[]>;
-    if (!/^\d{1,2}$/.test(cells.orden?.[0]?.text ?? "")) {
-      if (asegurados.length > 0) break; // fin de la tabla
-      continue;
-    }
+  // Garantías (columna izquierda), agrupadas por filas por separado de la tabla.
+  const leftLines = groupWordsIntoLines(words.filter((w) => inBand(w) && w.x1 <= tableX0));
+  const estadoXs = leftLines
+    .flat()
+    .filter((w) => /INCL|POL|^S?EG\b/.test(fold(w.text)))
+    .map((w) => w.x0)
+    .sort((a, b) => a - b);
+  const estadoX = estadoXs.length ? estadoXs[Math.floor(estadoXs.length / 2)] - sheet.cw : Infinity;
+  for (const line of leftLines) {
+    // El estado empieza en la primera palabra con SEG/INCL/POL (aunque lleve restos delante);
+    // si no hay, se usa la columna de los estados.
+    let start = line.findIndex((w) => /SEG|INCL|POL|^\W*\d?EG\W*$/.test(fold(w.text)));
+    if (start < 0) start = line.findIndex((w) => w.x0 >= estadoX);
+    if (start < 0) start = line.length;
+    let nameWords = line.slice(0, start).filter((w) => w.text !== ",");
+    // Restos del OCR al final del nombre («ABOGADO FAM 1»).
+    while (nameWords.length > 1 && !/\p{L}{2}/u.test(nameWords[nameWords.length - 1].text)) nameWords = nameWords.slice(0, -1);
+    const estadoWords = line.slice(start);
+    if (nameWords.length === 0 && estadoWords.length === 0) continue;
+    const i = garantias.length;
+    const known = GARANTIAS_BY_KEY.get(vocabKey(nameWords.map((w) => w.text).join("")));
+    const estado = canonicalEstado(estadoWords.map((w) => w.text).join(" "));
+    garantias.push({
+      nombre: known
+        ? known
+        : sheet.accept(`garantias.${i}.nombre`, { found: true, value: reading(nameWords) }, (t) => (/\p{L}{3}/u.test(t) && t.length <= 80 ? fold(t) : null)),
+      estado: estado ?? sheet.accept(`garantias.${i}.estado`, { found: true, value: reading(estadoWords) }, () => null),
+    });
+  }
+
+  // Asegurados: filas de la columna derecha que empiezan por el número de orden.
+  // «nº NOMBRE… REAL DER [BAJA [MOT]]»; el nombre viene truncado y se guarda tal cual.
+  const rightLines = groupWordsIntoLines(words.filter((w) => inBand(w) && w.x0 >= tableX0 && cyOf(w) > cyOf(nombre) + lineH / 2));
+  for (const line of rightLines) {
+    if (!/^\d{1,2}$/.test(line[0]?.text ?? "")) continue;
     const i = asegurados.length;
-    const cell = (key: string): { found: boolean; value: Reading } => ({ found: true, value: reading(cells[key] ?? []) });
+    const rest = line.slice(1);
+    let end = rest.length;
+    const isDate = (w?: OcrWord) => Boolean(w && parseDate(w.text));
+    const isInt = (w?: OcrWord) => Boolean(w && /^\d{1,3}$/.test(w.text));
+    let motivo: OcrWord[] = [];
+    let baja: OcrWord[] = [];
+    if (end >= 2 && !isDate(rest[end - 1]) && isDate(rest[end - 2])) motivo = [rest[--end]];
+    if (isDate(rest[end - 1])) baja = [rest[--end]];
+    const der = isInt(rest[end - 1]) ? [rest[--end]] : [];
+    const real = isInt(rest[end - 1]) ? [rest[--end]] : [];
+    const nameWords = rest.slice(0, end);
+    const cell = (ws: OcrWord[]) => ({ found: true, value: reading(ws) });
     asegurados.push({
-      orden: sheet.accept(`asegurados.${i}.orden`, cell("orden"), parseInt0, { strict: true }),
-      // El nombre viene truncado por la pantalla: se guarda tal cual.
-      nombre: sheet.accept(`asegurados.${i}.nombre`, cell("nombre"), parseText(80)),
-      edad_real: sheet.accept(`asegurados.${i}.edad_real`, cell("edad_real"), parseInt0, { strict: true }),
-      edad_derecho: sheet.accept(`asegurados.${i}.edad_derecho`, cell("edad_derecho"), parseInt0, { strict: true }),
-      baja: sheet.accept(`asegurados.${i}.baja`, cell("baja"), parseDate, { emptyIsValid: true, strict: true }),
-      motivo: sheet.accept(`asegurados.${i}.motivo`, cell("motivo"), (t) => (/^[A-Z0-9]{1,4}$/.test(fold(t)) ? fold(t) : null), { emptyIsValid: true, strict: true }),
+      orden: sheet.accept(`asegurados.${i}.orden`, cell([line[0]]), parseInt0, { strict: true }),
+      nombre: sheet.accept(`asegurados.${i}.nombre`, cell(nameWords), parseText(80)),
+      edad_real: sheet.accept(`asegurados.${i}.edad_real`, cell(real), parseInt0, { strict: true }),
+      edad_derecho: sheet.accept(`asegurados.${i}.edad_derecho`, cell(der), parseInt0, { strict: true }),
+      baja: sheet.accept(`asegurados.${i}.baja`, cell(baja), parseDate, { emptyIsValid: true, strict: true }),
+      motivo: sheet.accept(`asegurados.${i}.motivo`, cell(motivo), (t) => (/^[A-Z0-9]{1,4}$/.test(fold(t)) ? fold(t) : null), { emptyIsValid: true, strict: true }),
     });
   }
   return { garantias, asegurados };
 }
 
+function fechaBajaReading(sheet: Sheet) {
+  const r = sheet.under(/-*F\.?\s?BAJA-*/);
+  return r.found ? r : sheet.after(/F\.?\s?BAJA:/);
+}
+
+/** Prima anual: tras «ANUAL:»; si esa etiqueta no se lee, es el importe justo antes de «1.REC:». */
+function annualPremiumReading(sheet: Sheet) {
+  const r = sheet.after(/ANUAL:/);
+  if (r.found) return r;
+  for (const line of sheet.lines) {
+    const i = line.findIndex((w) => /^1\s?\.?\s?REC:$/.test(fold(w.text)));
+    if (i > 0 && parseAmount(line[i - 1].text) !== null) return { found: true, value: reading([line[i - 1]]) };
+  }
+  return { found: false, value: null };
+}
+
 /** ¿El texto reconocido es una hoja «Consulta abreviada»? */
 export function isConsultaAbreviada(lines: OcrLine[]) {
   const text = fold(lines.map((l) => l.map((w) => w.text).join(" ")).join("\n"));
-  return /CONSULTA\s+ABREVIADA/.test(text) || (/TOMADOR/.test(text) && /NUM\.?\s*POLIZA/.test(text));
+  return /CONSULTA\s+ABREVIADA/.test(text) || (/TO[MN]ADOR/.test(text) && /NU[MN]\.?\s*POLIZA/.test(text));
 }
 
 /** Extrae y valida todos los datos de la hoja. */
 export function parseConsultaAbreviada(rawLines: OcrLine[]): ConsultaAbreviada {
-  const lines = stripIban(rawLines);
-  const sheet = new Sheet(lines);
+  const clean = rawLines.map((l) => l.filter((w) => !isNoise(w)).map(cleanWord)).filter((l) => l.length > 0);
+  // Antes de borrar el IBAN se anota dónde estaba: marca el inicio de la columna de cobro.
+  const ibanWords = clean.flat().filter((w) => /^IBAN/i.test(w.text) || IBAN_RE.test(fold(w.text)));
+  const lines = stripIban(clean);
+  const sheet = new Sheet(lines, ibanWords.length ? Math.min(...ibanWords.map((w) => w.x0)) : null);
 
   // Cabecera: «dd/mm/aa hh:mm:ss».
   let fecha_consulta: string | null = null;
@@ -514,24 +637,25 @@ export function parseConsultaAbreviada(rawLines: OcrLine[]): ConsultaAbreviada {
   const result: ConsultaAbreviada = {
     poliza: {
       producto: sheet.accept("poliza.producto", sheet.under(/PRODU\.?/), (t) => (/^\d{3,6}$/.test(t) ? t : null), { strict: true }),
-      numero_poliza: sheet.accept("poliza.numero_poliza", sheet.under(/NUM\.?\s*POLIZA/), (t) => {
+      numero_poliza: sheet.accept("poliza.numero_poliza", sheet.under(/NU[MN]\.?\s*POLIZA/), (t) => {
         const v = fold(t).replace(/\s/g, "");
         return /^[A-Z0-9-]{4,20}$/.test(v) && /\d{4}/.test(v) ? v : null;
-      }, { strict: true }),
-      fecha_efecto: sheet.accept("poliza.fecha_efecto", sheet.after(/FECHA\s+EFECTO:?/), parseDate, { strict: true }),
+      }, { critical: true }),
+      fecha_efecto: sheet.accept("poliza.fecha_efecto", sheet.after(/FEC[HN]A\s+[A-Z]?FECTO:?/), parseDate, { strict: true }),
       tipo: sheet.accept("poliza.tipo", sheet.after(/TIPO:/), parseText(60)),
       forma_pago: sheet.accept("poliza.forma_pago", sheet.under(/FP/), (t) => (fold(t) in FORMAS_PAGO ? fold(t) : null), { strict: true }),
       situacion: sheet.accept("poliza.situacion", sheet.under(/SIT\.?/), (t) => (/^[A-Z]{1,3}$/.test(fold(t)) ? fold(t) : null), { strict: true }),
       // Puede venir vacía legítimamente (póliza en vigor).
-      fecha_baja: sheet.accept("poliza.fecha_baja", sheet.after(/F\.?\s?BAJA:?/), parseDate, { emptyIsValid: true, strict: true }),
+      // Cabecera «--F.BAJA--» con el valor debajo (o «F.BAJA:»); vacía si la póliza está en vigor.
+      fecha_baja: sheet.accept("poliza.fecha_baja", fechaBajaReading(sheet), parseDate, { emptyIsValid: true, strict: true }),
       cubierto_hasta: sheet.accept("poliza.cubierto_hasta", sheet.after(/GAR\.?\s?\/\s?ASEG\.?\s+A\s+FECHA:?/), parseDate, { strict: true }),
-      prima_anual: sheet.accept("poliza.prima_anual", sheet.after(/ANUAL:/), parseAmount, { strict: true }),
+      prima_anual: sheet.accept("poliza.prima_anual", annualPremiumReading(sheet), parseAmount, { strict: true }),
       primer_recibo: sheet.accept("poliza.primer_recibo", sheet.after(/1\s?\.\s?REC:/), parseAmount, { strict: true }),
       siguientes_recibos: sheet.accept("poliza.siguientes_recibos", sheet.after(/S\s?\.\s?REC:/), parseAmount, { strict: true }),
       fecha_consulta,
     },
     tomador: {
-      nombre: sheet.accept("tomador.nombre", sheet.after(/TOMADOR:/), formatHolderName),
+      nombre: sheet.accept("tomador.nombre", sheet.after(/TO[MN]ADOR:/), formatHolderName),
       dni: sheet.accept("tomador.dni", sheet.after(/DNI:?/), parseDni, { strict: true }),
       telefono: sheet.accept("tomador.telefono", sheet.after(/TLF\.?:?/), parsePhone, { strict: true }),
       ...domicilio,

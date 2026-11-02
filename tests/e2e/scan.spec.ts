@@ -35,12 +35,13 @@ test.describe("escaneo de hoja de póliza", () => {
     expect(await value("lead.full_name")).toBe("Maria Isabel Garcia Lopez");
     expect(await value("lead.phone")).toBe("600 123 456");
     expect(await value("lead.postal_code")).toBe("08172");
-    expect(await value("lead.locality")).toBe("Sant Cugat");
+    expect(await value("lead.locality")).toBe("S Cugat del Valles");
     expect(await value("lead.customer_reference")).toBe("0012345678");
     expect(await value("policy.effect_date")).toBe("2019-03-01");
     expect(await value("policy.annual_premium")).toBe("245,40");
     expect(await value("policy.covered_until")).toBe("2026-12-31");
-    await expect(page.locator('[name="insured.2.nombre"]')).toHaveValue("PEREZ GARCIA LUCIA");
+    expect(await value("policy.payment_frequency")).toBe("MEN");
+    await expect(page.locator('[name="insured.2.nombre"]')).toHaveValue("LUCIA PEREZ GARCIA");
     // SER.DECESOS → seguro de decesos «Sí».
     await expect(page.getByRole("combobox", { name: /decesos/ })).toHaveText("Sí");
     // Nunca se muestra ni se envía el IBAN ni el domicilio de cobro.

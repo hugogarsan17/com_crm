@@ -1,19 +1,30 @@
 import type { OcrWord } from "./consulta-abreviada";
 
-const MAX_SIDE = 2400;
+// Tamaño de trabajo del OCR: con la hoja entera en ~3000 px de lado largo los caracteres
+// rondan los 40 px de alto. En fotos pequeñas Tesseract confunde M/N y cifras (8→0), así
+// que se amplían (hasta ×3); las muy grandes se reducen para no ralentizar el navegador.
+const TARGET_SIDE = 3000;
+const MAX_UPSCALE = 3;
 
-/** Reduce imágenes muy grandes (fotos del móvil) para que el OCR sea más rápido. */
 async function prepareImage(file: File): Promise<Blob | File> {
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-    if (scale === 1) return file;
+    const scale = Math.min(MAX_UPSCALE, TARGET_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (Math.abs(scale - 1) < 0.1) {
+      bitmap.close();
+      return file;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    }
     bitmap.close();
-    return await new Promise<Blob | File>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.92));
+    return await new Promise<Blob | File>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/png"));
   } catch {
     return file;
   }

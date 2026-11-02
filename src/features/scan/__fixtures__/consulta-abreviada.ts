@@ -1,23 +1,31 @@
 import type { OcrWord } from "../consulta-abreviada";
 
 /**
- * Hoja «CONSULTA ABREVIADA» de ejemplo con DATOS INVENTADOS (nombres, DNI, IBAN y
- * teléfonos ficticios). Texto de ancho fijo: cada carácter ocupa una columna.
+ * Hoja «CONSULTA ABREVIADA» de ejemplo con la MISMA DISPOSICIÓN que las hojas reales
+ * (columnas, separadores «|», cabecera «--F.BAJA--», línea «|ANUAL:», domicilio de cobro
+ * e IBAN a la derecha) y DATOS INVENTADOS: nombres, DNI, IBAN, teléfono y direcciones
+ * son ficticios. Texto de ancho fijo: cada carácter ocupa una columna.
  */
 export const SHEET_LINES = [
-  "RAMOS TRADICIONALES          CONSULTA ABREVIADA             02/11/26 10:15:32",
-  "PRODU  NUM. POLIZA  FP   SIT  FECHA EFECTO: 01-03-2019    TIPO: FAMILIAR",
-  "25001  0012345678   MEN  VI   F.BAJA:                     GAR./ASEG. A FECHA: 31-12-2026",
-  "TOMADOR: GARCIA LOPEZ, MARIA ISABEL      DNI: 12345678Z     TLF. 600123456",
-  "DOMICILIO DEL TOMADOR                    DOMICILIO DE COBRO",
-  "C/ MAYOR 12 3 B                          AV. DEL PUERTO 4",
-  "SANT CUGAT - 8172 - BARCELONA            BADALONA - 8911 - BARCELONA",
-  "IBAN: ES12 3456 7890 1234 5678 9012",
-  "PRIMAS   ANUAL: 245,40    1.REC: 20,45    S.REC: 20,45",
-  "SER.DECESOS    SEG.POL.    X/G/P NOMBRE                 REAL DER BAJA     MOT",
-  "ASISTENCIA     INCLUIDO    1     GARCIA LOPEZ MARIA IS  54   54",
-  "TRASLADO       INCL. 2     2     PEREZ RUIZ JUAN ANTON  57   57",
-  "                           3     PEREZ GARCIA LUCIA     12   12  31-12-24 02",
+  "ASEGURADORA, S.A.         SISTEMA RAMOS TRADICIONALES             02/11/26  10:15:32",
+  "CONSULTA ABREVIADA        GES. DE CONTRATOS DE PÓLIZAS            TH1      ABCD12X",
+  "PRODU  NUM. POLIZA GEST COBR SUPL AGTE INSP COB RES      FP SIT --F.BAJA-- MO",
+  "25001     0012345678  0101 0101             555 11       MEN VI",
+  "FECHA EFECTO: 01-03-2019 TIPO: TS             GAR./ ASEG. A FECHA: 31-12-2026",
+  "TOMADOR: MARIA ISABEL GARCIA LOPEZ            DNI:  12345678Z TLF. 600123456",
+  "------- DOMICILIO DEL TOMADOR --------  --------- DOMICILIO DE COBRO --------",
+  "CL MAYOR , 0012 3-B                     IBAN: ES12-3456-7890-1234-5678-9012",
+  "S CUGAT DEL VALLES - 8172 - BARCELONA   AV. DEL PUERTO, 4 - BADALONA",
+  "SER.DECESOS   SEG.POL. *** |X/G/P       NOMBRE           REAL DER   BAJA   MOT",
+  "PR.INTEGRAL   INCL.  5     | _  1 MARIA ISABEL GARCIA LO 54   40",
+  "ASIS. VIAJE   INCLUIDO     | _  2 JUAN ANTONIO PEREZ RUI 57   45",
+  "AS.EXTRANJ.   INCLUIDO     | _  3 LUCIA PEREZ GARCIA     12    2   31-12-24 02",
+  "AC.MUERTE     SEG.POL.     |",
+  "                           |",
+  "                           |------------------------------------------------",
+  "                           |ANUAL:   245,40 1.REC:     20,45 S.REC:     20,45",
+  "Enter-PF1---PF2---PF3---PF4---PF5---PF6---PF7---PF8---PF9---PF10--PF11--PF12---",
+  "     SERV REC.  SALIR        NAV.  MOV.  PG.-  PG.+  DESG  SINI  -->",
 ];
 
 const CHAR_W = 10;
