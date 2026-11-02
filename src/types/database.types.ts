@@ -38,6 +38,8 @@ export type Database = {
           user_id: string;
           full_name: string;
           phone: string | null;
+          secondary_phone: string | null;
+          address: string | null;
           email: string | null;
           postal_code: string | null;
           locality: string | null;
@@ -69,6 +71,8 @@ export type Database = {
           user_id?: string;
           full_name: string;
           phone?: string | null;
+          secondary_phone?: string | null;
+          address?: string | null;
           email?: string | null;
           postal_code?: string | null;
           locality?: string | null;
@@ -91,6 +95,8 @@ export type Database = {
         Update: {
           full_name?: string;
           phone?: string | null;
+          secondary_phone?: string | null;
+          address?: string | null;
           email?: string | null;
           postal_code?: string | null;
           locality?: string | null;
@@ -273,6 +279,75 @@ export type Database = {
           },
         ];
       };
+      customer_policies: {
+        Row: {
+          id: string;
+          user_id: string;
+          lead_id: string;
+          policy_number: string | null;
+          product_reference: string | null;
+          effect_date: string | null;
+          policy_type: string | null;
+          payment_frequency: string | null;
+          status_code: string | null;
+          cancel_date: string | null;
+          covered_until: string | null;
+          annual_premium: number | null;
+          first_receipt_amount: number | null;
+          next_receipt_amount: number | null;
+          consulted_at: string | null;
+          coverages: Json;
+          insured: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          lead_id: string;
+          policy_number?: string | null;
+          product_reference?: string | null;
+          effect_date?: string | null;
+          policy_type?: string | null;
+          payment_frequency?: string | null;
+          status_code?: string | null;
+          cancel_date?: string | null;
+          covered_until?: string | null;
+          annual_premium?: number | null;
+          first_receipt_amount?: number | null;
+          next_receipt_amount?: number | null;
+          consulted_at?: string | null;
+          coverages?: Json;
+          insured?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          policy_number?: string | null;
+          product_reference?: string | null;
+          effect_date?: string | null;
+          policy_type?: string | null;
+          payment_frequency?: string | null;
+          status_code?: string | null;
+          cancel_date?: string | null;
+          covered_until?: string | null;
+          annual_premium?: number | null;
+          first_receipt_amount?: number | null;
+          next_receipt_amount?: number | null;
+          consulted_at?: string | null;
+          coverages?: Json;
+          insured?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_policies_lead_fkey";
+            columns: ["lead_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       products: {
         Row: {
           code: string;
@@ -440,6 +515,10 @@ export type Database = {
       import_leads: {
         Args: { p_rows: Json };
         Returns: number;
+      };
+      create_lead_from_scan: {
+        Args: { p_lead: Json; p_policy: Json; p_task?: Json | null };
+        Returns: string;
       };
       delete_my_account: {
         Args: Record<PropertyKey, never>;

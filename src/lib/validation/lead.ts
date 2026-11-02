@@ -14,7 +14,9 @@ export const leadSchema = z
   .object({
     full_name: requiredText(200, "El nombre es obligatorio"),
     phone: optionalPhone,
+    secondary_phone: optionalPhone,
     email: optionalEmail,
+    address: optionalText(200),
     postal_code: optionalPostalCode,
     locality: optionalText(120),
     // Número de póliza (columna customer_reference).

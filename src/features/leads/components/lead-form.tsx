@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ScanTextIcon } from "lucide-react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -71,9 +73,18 @@ export function LeadForm({
           <div className="surface flex flex-col gap-3 rounded-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
               <p className="font-medium">¿Tienes la ficha en papel o en una foto?</p>
-              <p className="text-sm text-muted-foreground">Escanéala y rellenamos los datos por ti. Podrás revisarlos antes de crear la ficha.</p>
+              <p className="text-sm text-muted-foreground">
+                Escanéala y rellenamos los datos por ti. Podrás revisarlos antes de crear la ficha.
+              </p>
             </div>
-            <ScanDocumentButton products={products} />
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="lg">
+                <Link href="/leads/scan">
+                  <ScanTextIcon aria-hidden /> Hoja de póliza
+                </Link>
+              </Button>
+              <ScanDocumentButton products={products} label="Otro documento" />
+            </div>
           </div>
         ) : null}
         <Card>
@@ -84,7 +95,9 @@ export function LeadForm({
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
               <TextField name="full_name" label="Nombre y apellidos" autoComplete="off" required className="sm:col-span-2" />
               <TextField name="phone" label="Teléfono" type="tel" inputMode="tel" autoComplete="off" placeholder="600 123 456" />
+              <TextField name="secondary_phone" label="Teléfono adicional" type="tel" inputMode="tel" autoComplete="off" />
               <TextField name="email" label="Email" type="email" inputMode="email" autoComplete="off" />
+              <TextField name="address" label="Domicilio" autoComplete="off" placeholder="Calle, número, piso" />
               <PostalCodeFields />
               <TextField name="customer_reference" label="Número de póliza" autoComplete="off" />
               <SelectField

@@ -126,14 +126,15 @@ export async function getLeadDetail(id: string) {
   if (!z.uuid().safeParse(id).success) notFound();
   const { user, supabase } = await requireUser();
 
-  const [lead, activities, tasks, policies] = await Promise.all([
+  const [lead, activities, tasks, policies, customerPolicies] = await Promise.all([
     supabase.from("leads").select("*").eq("id", id).eq("user_id", user.id).maybeSingle(),
     supabase.from("activities").select("*").eq("lead_id", id).order("occurred_at", { ascending: false }).limit(200),
     supabase.from("tasks").select("*").eq("lead_id", id).order("due_at", { ascending: true }).limit(200),
     supabase.from("policies").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
+    supabase.from("customer_policies").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
   ]);
 
-  if (lead.error || activities.error || tasks.error || policies.error) {
+  if (lead.error || activities.error || tasks.error || policies.error || customerPolicies.error) {
     throw new Error("No se pudo cargar la ficha.");
   }
   if (!lead.data) notFound();
@@ -144,6 +145,7 @@ export async function getLeadDetail(id: string) {
     activities: activities.data,
     tasks: tasks.data,
     policies: policies.data,
+    customerPolicies: customerPolicies.data,
   };
 }
 

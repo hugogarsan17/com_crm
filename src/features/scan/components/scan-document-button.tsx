@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { FUNERAL_INSURANCE_LABELS } from "@/features/leads/constants";
 import { productLabel, type Product } from "@/features/products/catalog";
 import { extractLeadFields, SCANNED_FIELD_LABELS, type ScannedLead } from "../extract";
+import { recognizeImage } from "../ocr";
 
 type Field = keyof ScannedLead;
 
@@ -20,24 +21,6 @@ type State =
   | { step: "reading"; status: string; progress: number }
   | { step: "review"; fields: ScannedLead; text: string }
   | { step: "error"; message: string };
-
-const MAX_SIDE = 2400;
-
-/** Reduce imágenes muy grandes (fotos del móvil) para que el OCR sea más rápido. */
-async function prepareImage(file: File): Promise<Blob | File> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-    if (scale === 1) return file;
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob | File>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.92));
-  } catch {
-    return file;
-  }
-}
 
 function displayValue(field: Field, value: string, products: Product[]) {
   if (field === "has_funeral_insurance") return FUNERAL_INSURANCE_LABELS[value as "yes" | "no"];
@@ -49,7 +32,7 @@ function displayValue(field: Field, value: string, products: Product[]) {
  * Escanea una ficha en papel o una captura: reconoce el texto en el navegador (Tesseract.js,
  * la imagen no sale del dispositivo), deduce los campos y rellena el formulario para revisarlo.
  */
-export function ScanDocumentButton({ products }: { products: Product[] }) {
+export function ScanDocumentButton({ products, label = "Escanear documento" }: { products: Product[]; label?: string }) {
   const { setValue, getValues, setFocus } = useFormContext();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<State>({ step: "pick" });
@@ -72,29 +55,19 @@ export function ScanDocumentButton({ products }: { products: Product[] }) {
     }
     const id = ++run.current;
     setState({ step: "reading", status: "Preparando la imagen…", progress: 0 });
-    let worker: import("tesseract.js").Worker | null = null;
     try {
-      const image = await prepareImage(file);
-      const { createWorker } = await import("tesseract.js");
-      worker = await createWorker("spa", 1, {
-        logger: (m) => {
-          if (id !== run.current) return;
-          const status = m.status === "recognizing text" ? "Leyendo el texto…" : "Cargando el lector (solo la primera vez)…";
-          setState({ step: "reading", status, progress: m.status === "recognizing text" ? m.progress : 0 });
-        },
+      const { text } = await recognizeImage(file, ({ status, progress }) => {
+        if (id === run.current) setState({ step: "reading", status, progress });
       });
-      const { data } = await worker.recognize(image);
       if (id !== run.current) return;
-      const fields = extractLeadFields(data.text, products);
+      const fields = extractLeadFields(text, products);
       setSelected(new Set(Object.keys(fields) as Field[]));
       setAddToNotes(false);
-      setState({ step: "review", fields, text: data.text.trim() });
+      setState({ step: "review", fields, text: text.trim() });
     } catch {
       if (id === run.current) {
         setState({ step: "error", message: "No se pudo leer el documento. Comprueba la conexión (la primera vez se descarga el lector) y vuelve a intentarlo." });
       }
-    } finally {
-      await worker?.terminate();
     }
   }
 
@@ -136,7 +109,7 @@ export function ScanDocumentButton({ products }: { products: Product[] }) {
           setOpen(true);
         }}
       >
-        <ScanTextIcon aria-hidden /> Escanear documento
+        <ScanTextIcon aria-hidden /> {label}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

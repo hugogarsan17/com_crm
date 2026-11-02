@@ -17,6 +17,7 @@ import { getCommissionRules } from "@/features/commissions/queries";
 import { PoliciesSection } from "@/features/policies/components/policies-section";
 import { productLabel } from "@/features/products/catalog";
 import { getProducts } from "@/features/products/queries";
+import { CustomerPolicies } from "@/features/scan/components/customer-policies";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { isoToLocalDateTime, localDateTimeFromNow, todayInTimeZone } from "@/lib/dates";
 import { formatCurrency, formatDateTime } from "@/lib/format";
@@ -134,7 +135,9 @@ async function ClientData({ params }: { params: Params }) {
     <>
       <dl className="grid grid-cols-2 gap-3">
         <Info label="Teléfono">{lead.phone}</Info>
+        {lead.secondary_phone ? <Info label="Teléfono adicional">{lead.secondary_phone}</Info> : null}
         <Info label="Email">{lead.email}</Info>
+        {lead.address ? <Info label="Domicilio">{lead.address}</Info> : null}
         <Info label="Código postal">{lead.postal_code}</Info>
         <Info label="Localidad">{lead.locality}</Info>
         <Info label="Número de póliza">{lead.customer_reference}</Info>
@@ -157,6 +160,11 @@ async function ClientData({ params }: { params: Params }) {
       ) : null}
     </>
   );
+}
+
+async function CustomerPolicyCard({ params }: { params: Params }) {
+  const { user, customerPolicies } = await loadDetail(params);
+  return <CustomerPolicies policies={customerPolicies} timezone={user.timezone} />;
 }
 
 async function CommissionTotals({ params }: { params: Params }) {
@@ -253,6 +261,10 @@ export default function LeadDetailPage({ params }: PageProps<"/leads/[id]">) {
               </Suspense>
             </CardContent>
           </Card>
+
+          <Suspense fallback={null}>
+            <CustomerPolicyCard params={params} />
+          </Suspense>
 
           <Card>
             <CardHeader>

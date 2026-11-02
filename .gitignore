@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Plantilla de variables (sí se versiona)
 !.env.example
+
+# Modelos de idioma que Tesseract descarga al ejecutarse en Node
+*.traineddata

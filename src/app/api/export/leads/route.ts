@@ -45,12 +45,12 @@ export async function GET() {
 
   const body = toCsv(
     [
-      "Nombre", "Teléfono", "Email", "Código postal", "Localidad", "Número de póliza", "Seguro de decesos", "Producto",
+      "Nombre", "Teléfono", "Teléfono adicional", "Email", "Domicilio", "Código postal", "Localidad", "Número de póliza", "Seguro de decesos", "Producto",
       "Estado", "Estado anterior", "Prioridad", "Último resultado", "Último contacto", "Próxima acción", "Próximo seguimiento",
       "Recibida", "Cerrada", "Motivo de cierre", "Archivada", "Notas",
     ],
     all.map((l) => [
-      l.full_name, l.phone, l.email, l.postal_code, l.locality, l.customer_reference, funeralCell(l.has_funeral_insurance),
+      l.full_name, l.phone, l.secondary_phone, l.email, l.address, l.postal_code, l.locality, l.customer_reference, funeralCell(l.has_funeral_insurance),
       l.product_code ? productLabel(products, l.product_code) : "",
       LEAD_STATUS_LABELS[l.status], l.legacy_status ? (RETIRED_LEAD_STATUS_LABELS[l.legacy_status] ?? l.legacy_status) : "",
       LEAD_PRIORITY_LABELS[l.priority],

@@ -3,7 +3,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
 const PAGE = 1000;
-type Table = "leads" | "activities" | "tasks" | "policies" | "commission_rules" | "notification_log";
+type Table = "leads" | "activities" | "tasks" | "policies" | "customer_policies" | "commission_rules" | "notification_log";
 
 /** Exportación completa de los datos del usuario (derecho de acceso/portabilidad). */
 export async function GET() {
@@ -22,13 +22,14 @@ export async function GET() {
   }
 
   try {
-    const [profile, notificationPreferences, leads, activities, tasks, policies, commissionRules, notificationLog] = await Promise.all([
+    const [profile, notificationPreferences, leads, activities, tasks, policies, customerPolicies, commissionRules, notificationLog] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("notification_preferences").select("*").eq("user_id", user.id).maybeSingle(),
       fetchAll("leads"),
       fetchAll("activities"),
       fetchAll("tasks"),
       fetchAll("policies"),
+      fetchAll("customer_policies"),
       fetchAll("commission_rules"),
       fetchAll("notification_log"),
     ]);
@@ -41,6 +42,7 @@ export async function GET() {
         activities,
         tasks,
         policies,
+        customer_policies: customerPolicies,
         commission_rules: commissionRules,
         notification_log: notificationLog,
       },

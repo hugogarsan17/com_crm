@@ -7,6 +7,8 @@ export function emptyLeadFormValues(): LeadFormInput {
   return {
     full_name: "",
     phone: "",
+    secondary_phone: "",
+    address: "",
     email: "",
     postal_code: "",
     locality: "",
@@ -26,6 +28,8 @@ export function leadToFormValues(lead: Tables<"leads">, tz: string): LeadFormInp
   return {
     full_name: lead.full_name,
     phone: lead.phone ?? "",
+    secondary_phone: lead.secondary_phone ?? "",
+    address: lead.address ?? "",
     email: lead.email ?? "",
     postal_code: lead.postal_code ?? "",
     locality: lead.locality ?? "",

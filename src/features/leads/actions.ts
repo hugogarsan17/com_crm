@@ -14,6 +14,8 @@ function toLeadRow(data: z.output<typeof leadSchema>, tz: string) {
   return {
     full_name: data.full_name,
     phone: data.phone,
+    secondary_phone: data.secondary_phone,
+    address: data.address,
     email: data.email,
     postal_code: data.postal_code,
     locality: data.locality,
